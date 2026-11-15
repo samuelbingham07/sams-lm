@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Data (TinyStories downloads, tokenized/prepared files)
+data/
+*.bin
+*.npy
+*.npz
+*.arrow
+*.parquet
+
+# Hugging Face cache
+.cache/
+hf_cache/
+
+# Model checkpoints / weights
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Experiment logs (keep experiments/results/ — those are report figures)
+wandb/
+runs/
+*.log
+
+# Secrets
+.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
