@@ -12,9 +12,10 @@ Specs of the machine used to train the language model.
 | CPU | AMD Ryzen 7 7700X, 8 cores / 16 threads, 4.5 GHz |
 | RAM | 32 GB DDR5-4800 (2 × 16 GB) |
 | OS | Windows 11 Home, 64-bit (10.0.26300) |
-| GPU backend | TBD — ROCm (PyTorch for Windows, or WSL2) instead of CUDA |
-| Python | 3.14.3 installed (may need 3.12 for ROCm PyTorch wheels) |
-| PyTorch version | not installed yet |
+| GPU backend | ROCm 7.14.1 (HIP 7.14.60850), native Windows — working |
+| Python | 3.14.3 (project venv: `.venv`) |
+| PyTorch version | 2.12.0+rocm7.14.1 |
+| Measured matmul | ~9.4 TFLOPS fp32, ~36 TFLOPS bf16 (4096×4096) |
 
 ---
 
@@ -56,6 +57,13 @@ Version        : 10.0.26300
 OSArchitecture : 64-bit
 ```
 
-### GPU + PyTorch (run after installing PyTorch)
+### GPU + PyTorch
 ```
+torch 2.12.0+rocm7.14.1 | hip 7.14.60850
+GPU available: True
+device: AMD  Radeon RX 7800 XT
+VRAM GB: 17.2
+fp32 TFLOPS: 9.4
+bf16 TFLOPS: 36.0
+attention + backward OK: True
 ```

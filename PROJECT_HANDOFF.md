@@ -77,12 +77,25 @@ python -m pip install --upgrade pip
 ```
 (If PowerShell blocks activation: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then retry.)
 
-### 3.4 Install PyTorch with CUDA
-Get the exact command from https://pytorch.org/get-started/locally/ (pick Stable / Windows / Pip / Python / CUDA). As of this writing it looks like:
+### 3.4 Install PyTorch with ROCm (AMD GPU) — DONE 2026-11-15
+The training PC has an **AMD RX 7800 XT (gfx1101), not NVIDIA**, so we use AMD's ROCm build of PyTorch instead of CUDA. Verified working on Windows with Python 3.14:
 ```powershell
-pip install torch --index-url https://download.pytorch.org/whl/cu124
+py -3.14 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --index-url https://repo.amd.com/rocm/whl-multi-arch/ `
+  "torch[device-gfx1101]==2.12.0+rocm7.14.1" `
+  "torchvision[device-gfx1101]==0.27.0+rocm7.14.1" `
+  "torchaudio==2.11.0+rocm7.14.1"
 ```
-Then verify the GPU is visible (see the python one-liner in HARDWARE.md). `CUDA available: True` is the goal.
+Or reproduce the whole env: `pip install -r requirements.txt --extra-index-url https://repo.amd.com/rocm/whl-multi-arch/`
+
+Source: https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/frameworks/pytorch/install.html
+
+Notes:
+- ROCm PyTorch still uses the `torch.cuda` API: `device="cuda"`, `torch.cuda.is_available()` → `True`. nanoGPT/tutorial code works unchanged.
+- Measured: ~9 TFLOPS fp32, **~36 TFLOPS bf16** → train in bf16 autocast.
+- Built-in `scaled_dot_product_attention` warns that flash/mem-efficient kernels are experimental on this GPU. Irrelevant for us since we write attention ourselves, but if we use it for speed: set `TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1`.
+- `torch.compile` on ROCm/Windows is untested — try it, fall back to eager if it breaks.
 
 ### 3.5 Other dependencies
 ```powershell
