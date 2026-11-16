@@ -15,12 +15,14 @@ dill==0.4.1
 filelock==3.29.1
 fonttools==4.68.0
 fsspec==2026.4.0
+ftfy==6.3.1
 h11==0.16.0
 hf-xet==1.8.0
 httpcore2==2.16.0
 httpx2==2.16.0
 huggingface_hub==2.4.0
 idna==3.20
+iniconfig==2.3.1
 Jinja2==3.1.6
 kiwisolver==1.5.1
 MarkupSafe==3.0.3
@@ -32,8 +34,11 @@ numpy==2.4.4
 packaging==26.3
 pandas==3.1.1
 pillow==12.2.0
+pluggy==1.7.0
 pyarrow==26.0.1
+Pygments==2.21.0
 pyparsing==3.3.3
+pytest==9.2.0
 python-dateutil==4.0.0
 PyYAML==6.0.3
 regex==2026.11.15
@@ -54,4 +59,5 @@ truststore==0.10.5
 typing_extensions==4.16.0
 tzdata==2026.6
 urllib3==2.8.0
+wcwidth==0.9.4
 xxhash==4.1.0

@@ -3,7 +3,7 @@
 Self-contained context for continuing this project on the Windows PC (training machine).
 If you're an AI assistant reading this: this file is the source of truth for what we decided and why. Start here.
 
-Author: Samuel Bingham. Course: Ethical Software Systems. Partner: TBD (project is 2-person; strongly recommended by instructor).
+Author: Samuel Bingham. Course: Ethical Software Systems (CS 181E, Fall 2026). Partner: asked, awaiting answer — Sam will proceed solo if not.
 
 ---
 
@@ -16,9 +16,11 @@ Final project for an "Ethical Software Systems" course. Requirements:
 - Can be done with a partner (recommended).
 
 **Deadlines:**
-- Proposal: **Wed Nov 18, 2025** — short Gradescope form: (1) topic, (2) group members, (3) one-paragraph description.
-- Full project: **Wed Dec 9, 2025, 11:59pm** — submit (1) all code, (2) `report.pdf`, (3) `reflection.txt`.
+- Proposal: **Wed Nov 18, 2026** — short Gradescope form: (1) topic, (2) group members, (3) one-paragraph description.
+- Full project: **Wed Dec 9, 2026, 11:59pm** — submit (1) all code, (2) `report.pdf`, (3) `reflection.txt`.
 - Presentation: in class **Dec 7–9**; submit slide deck on Gradescope by Dec 9.
+
+(Year corrected from 2025: the lecture slides are dated Fall 2026.)
 
 **`reflection.txt` must answer:** how long it took; how AI was used; whether AI helped / saved time / affected learning; any other feedback.
 
@@ -34,8 +36,8 @@ Two intertwined goals:
 
 **Ethical argument:** LLMs don't just learn patterns, they memorize. If training data contains private info, the model can leak it. This is a concrete, current harm and the reason differential privacy in ML matters. We demonstrate the harm on our own model and measure a mitigation.
 
-### Build philosophy: MAX FROM-SCRATCH
-Samuel writes the tokenizer (byte-pair encoding), multi-head self-attention, transformer blocks, and training loop **himself**. Allowed: keep a known-good reference (nanoGPT) open purely as a sanity-check oracle when a result looks wrong — but write every line ourselves. Use PyTorch as the tensor/autograd engine (that's expected, not "cheating").
+### Build philosophy: from scratch, thorough, matched to the class (updated 2026-11-15)
+The tokenizer (byte-pair encoding), multi-head self-attention, transformer blocks, and training loop are implemented from scratch in this repo (no Hugging Face model or tokenizer libraries), with code written by Claude Code and directed and reviewed by Samuel. Priorities: **thoroughness** (tests, sanity checks, reproducibility) and **matching the class's own code style and scope** where possible. nanoGPT is used only as a reference to check results against. PyTorch is the tensor/autograd engine. AI use is documented in `reflection.txt`.
 
 ### What we measure / the key graphs
 - Sample generations at several training checkpoints (quality over time).
@@ -44,14 +46,33 @@ Samuel writes the tokenizer (byte-pair encoding), multi-head self-attention, tra
 - **Leakage with no defense vs. with defense** (DP-SGD and/or dedup).
 - **Utility cost of the defense** (quality/loss with vs. without) — the privacy/utility tradeoff, now on our own LLM.
 
+### Alignment with the CS 181E lectures
+Lecture slides (PDFs in Sam's OneDrive `Documents\Class Files`, not committed) relevant to this project:
+- **L12–13 ML1/ML2:** Naive Bayes, perceptron, SVM, neural nets; code is plain Python with `pandas` + `sklearn`; models are evaluated with `sklearn.metrics` (accuracy, precision, recall, F1, confusion matrix).
+- **L16 ML-Attacks:** frames attacks with confidentiality/integrity/availability (C/I/A). *Inference-stage confidentiality attacks:* **membership inference** (shadow models → attack classifier, "83–92% accuracy"), **training data extraction**, model inversion, model extraction. Defenses: **differentially-private training**, outlier mitigation, gradient masking, explainability.
+- **L17–18 ML-DP1/DP2:** where to add DP noise (data / training / model / predictions); **composition → privacy budget**; **DP-SGD = clip each example's gradient (bounds sensitivity) + add Gaussian noise to the aggregated gradient → approximate (ε, δ)-DP**; utility comparison exercise ("how does accuracy compare to the non-private model?"). Notes that DP-SGD lives in tensorflow-privacy, not diffprivlib.
+- **L4–5 dp1/dp2:** ε-DP definition, sensitivity, Laplace mechanism, composition, randomized response, RAPPOR.
+- L14 ML-Bias and L15 ML-Expl (LIME): not central here.
+
+How the project maps onto them:
+- Memorization attacks are **inference-stage confidentiality attacks** (L16 terms), evaluated **as binary classifiers with `sklearn.metrics`**, the class's own evaluation tooling, plus ROC-AUC and TPR at low FPR (standard for MIA).
+- **Membership inference:** loss-threshold attack (members = training stories; non-members = validation stories with the train overlap removed). Stretch: the **shadow-model attack from L16** (small shadow LMs on disjoint data halves → sklearn classifier on loss features).
+- **Training data extraction:** planted canaries; prompt with the prefix, check whether greedy decoding reproduces the secret; also canary "exposure" (rank of true secret among candidates).
+- **DP-SGD:** implement per-example clipping + Gaussian noise ourselves, exactly as in L18 (PyTorch, since tensorflow-privacy doesn't fit); use an accountant only to compute ε at fixed δ (privacy budget over all steps = composition, L17).
+- **Dedup:** data-side defense (related to L16 outlier mitigation).
+- **Privacy/utility tradeoff:** validation loss and sample quality with vs. without each defense, mirroring the DP Naive Bayes exercise.
+- Scope: the class works at intro-ML level. The from-scratch GPT is the portfolio piece; the report should put the weight on the privacy analysis, in the course's vocabulary.
+
 ### Partner split (once partner confirmed)
 - **Partner A:** build + train the GPT (tokenizer, architecture, training loop, generation).
 - **Partner B:** canary design, extraction attack, the defense (DP/dedup), analysis + plots + report.
 
 ### Open decisions (not yet locked)
-- [ ] Confirm partner + their name for the proposal.
-- [ ] GPU confirmed? (fills in model size — see HARDWARE.md). Need `nvidia-smi` output.
-- [ ] Final model size (depends on VRAM; target 10–60M params).
+- [ ] Partner: asked, awaiting answer (solo is fine).
+- [x] GPU: AMD RX 7800 XT, 16 GB VRAM, ROCm PyTorch working (see HARDWARE.md).
+- [ ] Final model size (16 GB VRAM → top of the 10–60M param range is feasible).
+- [x] Tokenizer: byte-level BPE, vocab 4096. Context length: 512 planned.
+- [x] Keep natural duplicates in baseline training data (so dedup has something to remove).
 - [ ] Defense: DP-SGD (Opacus) vs. dedup vs. both. Start with dedup (simpler), add DP-SGD if time.
 - [ ] Stretch: Gradio/web demo for portfolio.
 
@@ -59,7 +80,7 @@ Samuel writes the tokenizer (byte-pair encoding), multi-head self-attention, tra
 
 ## 3. PC environment setup (Windows)
 
-Run in order. Assumes Windows + NVIDIA GPU.
+Done on the training PC (2026-11-15). Kept as a record and for re-setup.
 
 ### 3.1 Document hardware first
 See `HARDWARE.md` in this folder. Run the commands there (esp. `nvidia-smi`) and paste outputs. The VRAM number sets our model size.
@@ -99,8 +120,9 @@ Notes:
 
 ### 3.5 Other dependencies
 ```powershell
-pip install numpy matplotlib tqdm datasets tiktoken
+pip install numpy matplotlib tqdm datasets tiktoken ftfy pytest
 ```
+- `ftfy` → repair mojibake during data cleaning. `pytest` → tests.
 - `datasets` → download TinyStories (`roneneldan/TinyStories` on Hugging Face).
 - `tiktoken` → reference tokenizer for comparison (we still build our own BPE).
 - Later, if doing DP-SGD: `pip install opacus`.
@@ -110,43 +132,64 @@ Freeze versions when stable: `pip freeze > requirements.txt`
 
 ---
 
-## 4. Planned repo structure
+## 4. Repo structure (✓ = exists)
 ```
-Final Project/
-  PROJECT_HANDOFF.md        <- this file
-  HARDWARE.md               <- machine specs
-  requirements.txt
-  data/                     <- TinyStories download + prepared token files (gitignore large files)
+Sam's LM/
+  PROJECT_HANDOFF.md        ✓ this file
+  HARDWARE.md               ✓ machine specs
+  requirements.txt          ✓ pinned env (needs AMD extra index, see 3.4)
+  tokenizer/bpe4096.json    ✓ trained tokenizer (small, committed)
+  data/                     ✓ gitignored: hf_cache/, clean/, tokens/
   src/
-    tokenizer.py            <- BPE tokenizer, from scratch
-    model.py                <- transformer: attention, blocks, GPT (from scratch)
-    train.py                <- training loop, checkpointing, loss logging
-    generate.py             <- sampling / text generation
-    canaries.py             <- insert canary secrets into training data
-    extract.py              <- membership/extraction attack, memorization measurement
-    defense.py              <- dedup and/or DP-SGD training variant
+    download_data.py        ✓ TinyStories -> data/ (raw text export)
+    prepare_data.py         ✓ cleaning -> data/clean/{train,validation}.txt + stats.json
+    tokenizer.py            ✓ byte-level BPE, from scratch (train / encode / decode / save / load)
+    encode_data.py          ✓ -> data/tokens/{split}.bin (uint16) + {split}_offsets.npy
+    model.py                  transformer: attention, blocks, GPT (from scratch)
+    train.py                  training loop, checkpointing, loss logging
+    generate.py               sampling / text generation
+    canaries.py               insert canary secrets into training data
+    extract.py                membership inference + extraction attacks
+    defense.py                dedup and DP-SGD training variants
+  tests/
+    test_tokenizer.py       ✓ 26 tests incl. exact match vs. naive reference BPE
   experiments/
-    plots.py                <- generate the report figures
-    results/                <- loss logs, generations, metrics
-  report/
-    report.pdf
-    reflection.txt
+    plots.py                  report figures
+    results/                  loss logs, generations, metrics (committed)
+  report/  report.pdf, reflection.txt
   slides/
 ```
+Rebuild data from scratch: `python src/download_data.py; python src/prepare_data.py; python src/tokenizer.py; python src/encode_data.py` (~5 min total).
 
 ---
 
-## 5. Immediate next steps (in order)
-1. Move this folder to the PC (or git clone if we set up a repo).
-2. Fill in `HARDWARE.md` (run `nvidia-smi` etc.). **Report the VRAM back so we can pick model size.**
-3. Do env setup (section 3). Confirm `torch.cuda.is_available()` is True.
-4. Download TinyStories, inspect it, decide vocab size for BPE.
-5. Start building `tokenizer.py` (BPE from scratch) — first real code.
-6. In parallel: confirm partner, submit the proposal (paragraph draft below).
+## 5. Data + tokenizer (done 2026-11-15)
+**Raw TinyStories:** 2,119,719 train / 21,990 validation stories.
+
+Problems found and how they were handled (`src/prepare_data.py`, numbers in `data/clean/stats.json`):
+- **Mojibake** in 129,567 train stories (6%): `â€™` instead of `'` etc. Some closing quotes lost a byte, which ftfy can't fix. Fixed with an explicit map, then ftfy, then ASCII folding. Only 279 chars dropped in the whole train set.
+- **230 empty stories:** dropped.
+- **Exact duplicates:** 320,241 train stories appear exactly twice (1,799,248 unique). **Kept on purpose:** a natural "seen once vs. twice" memorization comparison, and real work for the dedup defense.
+- **Train/validation overlap:** 6,601 of 21,990 validation stories (30%) also appear in train. **Removed from validation** (15,389 remain), so val loss is honest and validation can serve as true non-members for membership inference.
+
+**Tokenizer** (`src/tokenizer.py`): byte-level BPE, GPT-2-style regex pre-split, 256 bytes + 3,839 merges + `<|endoftext|>` = **4,096 tokens**. Trained on all train chunks in ~20 s. **3.99 bytes/token on validation vs. 4.11 for GPT-2's 50,257-token tokenizer.** Tests check exact equality with a naive reference trainer/encoder and round-tripping (including non-ASCII).
+
+**Encoded** (`src/encode_data.py`): train **484.1M tokens**, validation **3.26M tokens**. Mean 228 tokens/story, p99 664; 3.5% of train stories exceed 512 tokens.
+
+**Note for canary experiments:** the tokenizer is trained on clean data *before* canaries are inserted, so secrets don't get dedicated tokens. That's realistic (tokenizers are usually trained once and reused).
 
 ---
 
-## 6. Draft proposal paragraph (for Gradescope, Nov 18)
+## 6. Next steps (in order)
+1. **Submit the proposal by Wed Nov 18** (paragraph in section 7; switch to "I" if solo).
+2. `model.py`: GPT from scratch (token + position embeddings, causal multi-head self-attention, MLP, pre-LayerNorm, weight tying). Tests: shapes, causal masking (future tokens can't affect past outputs), can overfit one batch.
+3. `train.py`: memmap data loader, AdamW + cosine LR schedule, bf16 autocast, grad clipping, periodic val loss + sample generations, checkpoints, logs to `experiments/results/`.
+4. Pick model size from a quick throughput benchmark on the RX 7800 XT; train the baseline.
+5. `canaries.py` / `extract.py` → `defense.py` (dedup, then DP-SGD) → plots → report.
+
+---
+
+## 7. Draft proposal paragraph (for Gradescope, Nov 18)
 
 > **Topic:** Memorization and privacy leakage in language models we build ourselves.
 >
@@ -156,9 +199,9 @@ Final Project/
 
 ---
 
-## 7. Notes / reminders
-- Big data and model checkpoints should NOT be committed to git — add a `.gitignore`.
+## 8. Notes / reminders
+- Big data and model checkpoints are NOT committed (`.gitignore` covers `data/`, `*.pt`, `checkpoints/`). Repo: https://github.com/samuelbingham07/sams-lm (public).
 - Keep every result (loss logs, sample generations, metrics) — they're the report's figures.
 - Track hours spent and how AI was used, as we go, for `reflection.txt`.
 - Attribution for any git commits made via Claude Code: end commit messages with
-  `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
+  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
