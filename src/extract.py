@@ -316,7 +316,7 @@ def evaluate_mia(items):
         if len(mem) < 10:
             continue
         match = length_matched([len(it["tokens"]) for it in mem], non_lens)
-        for attack in out:     # lower loss -> member, so negate
+        for attack in ("loss", "zlib_score"):     # lower loss -> member, so negate
             out[attack][group] = binary_eval(-np.array([it[attack] for it in mem]),
                                              -np.array([non[i][attack] for i in match]))
         out.setdefault("mean_tokens", {})[group] = float(np.mean([len(it["tokens"]) for it in mem]))

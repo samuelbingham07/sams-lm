@@ -74,3 +74,19 @@ def test_length_matched_follows_member_lengths():
     matched = non_lens[idx]
     assert abs(matched.mean() - mem_lens.mean()) < 8
     assert (np.abs(matched // 16 - mem_lens // 16) == 0).all()
+
+
+def test_evaluate_mia_end_to_end():
+    rng = np.random.default_rng(0)
+    items = []
+    for g, member, shift in [("seen0", 1, 0), ("seen1", 1, 0.1), ("seen2", 1, 0.2), ("seen3+", 1, 0.3),
+                             ("train_any", 1, 0.1), ("nonmember", 0, 0)] + [("nonmember", 0, 0)]:
+        for _ in range(100):
+            n = int(rng.integers(20, 200))
+            loss = float(rng.normal(2.0 - shift, 0.3))
+            items.append({"group": g, "member": member, "tokens": [0] * n, "loss": loss,
+                          "zlib_score": loss * n / 300})
+    out = extract.evaluate_mia(items)
+    assert set(out["loss"]) == {"seen0", "seen1", "seen2", "seen3+", "train_any", "seen1+"}
+    assert out["loss"]["seen3+"]["auc"] > out["loss"]["seen0"]["auc"]
+    assert "nonmember" in out["mean_loss"]
