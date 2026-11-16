@@ -1,0 +1,42 @@
+{
+  "S  (6L/384d) explicit": {
+    "params_M": 12.391296,
+    "tokens_per_s": 132006.33822732503,
+    "peak_mem_GB": 4.398468096
+  },
+  "S  (6L/384d) sdpa": {
+    "params_M": 12.391296,
+    "tokens_per_s": 115660.84846428422,
+    "peak_mem_GB": 4.019014656
+  },
+  "M  (8L/512d) explicit": {
+    "params_M": 27.533824,
+    "tokens_per_s": 70185.52604105067,
+    "peak_mem_GB": 7.090868736
+  },
+  "M  (8L/512d) sdpa": {
+    "params_M": 27.533824,
+    "tokens_per_s": 62038.33291835704,
+    "peak_mem_GB": 6.416634368
+  },
+  "L  (10L/640d) explicit": {
+    "params_M": 52.11456,
+    "tokens_per_s": 45710.76303498364,
+    "peak_mem_GB": 10.62597632
+  },
+  "L  (10L/640d) sdpa": {
+    "params_M": 52.11456,
+    "tokens_per_s": 40740.35894236938,
+    "peak_mem_GB": 9.57346816
+  },
+  "XL (12L/768d) explicit": {
+    "params_M": 88.4928,
+    "tokens_per_s": 11646.329256674662,
+    "peak_mem_GB": 15.028596224
+  },
+  "XL (12L/768d) sdpa": {
+    "params_M": 88.4928,
+    "tokens_per_s": 23200.323570003304,
+    "peak_mem_GB": 13.614728704
+  }
+}

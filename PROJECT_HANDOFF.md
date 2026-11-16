@@ -145,7 +145,7 @@ Sam's LM/
     prepare_data.py         ✓ cleaning -> data/clean/{train,validation}.txt + stats.json
     tokenizer.py            ✓ byte-level BPE, from scratch (train / encode / decode / save / load)
     encode_data.py          ✓ -> data/tokens/{split}.bin (uint16) + {split}_offsets.npy
-    model.py                  transformer: attention, blocks, GPT (from scratch)
+    model.py                ✓ GPT from scratch: explicit causal attention, pre-LN blocks, weight tying, generate()
     train.py                  training loop, checkpointing, loss logging
     generate.py               sampling / text generation
     canaries.py               insert canary secrets into training data
@@ -153,7 +153,9 @@ Sam's LM/
     defense.py                dedup and DP-SGD training variants
   tests/
     test_tokenizer.py       ✓ 26 tests incl. exact match vs. naive reference BPE
+    test_model.py           ✓ 14 tests: causality, explicit attn == SDPA, overfits a batch, per-example grads (DP-SGD)
   experiments/
+    benchmark.py            ✓ throughput of candidate model sizes
     plots.py                  report figures
     results/                  loss logs, generations, metrics (committed)
   report/  report.pdf, reflection.txt
@@ -180,11 +182,30 @@ Problems found and how they were handled (`src/prepare_data.py`, numbers in `dat
 
 ---
 
+## 5b. Model + GPU benchmark (done 2026-11-15)
+`src/model.py`: GPT-2-style decoder, no biases, dropout 0 by default (keeps per-example gradients well defined for DP-SGD). `forward(..., reduction="none")` gives per-token losses for the memorization experiments.
+
+Training throughput on the RX 7800 XT, bf16 autocast, batch 32 x 512 tokens (`experiments/benchmark.py`, results in `experiments/results/benchmark.json`):
+
+| Model | Params | Explicit attn | Torch SDPA | Peak mem | ~Time per epoch (484M tok) |
+|---|---|---|---|---|---|
+| S 6L/384d | 12.4M | 132K tok/s | 116K | 4.4 GB | 1.0 h |
+| M 8L/512d | 27.5M | 70K tok/s | 62K | 7.1 GB | 1.9 h |
+| L 10L/640d | 52.1M | 46K tok/s | 41K | 10.6 GB | 2.9 h |
+| XL 12L/768d | 88.5M | 12K tok/s | 23K | 15.0 GB | 5.8 h (SDPA) |
+
+- Our explicit attention is **faster** than torch's SDPA here (except XL, which is memory-bound). Default `use_sdpa=False`.
+- `TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1` makes SDPA **crash** (hipErrorInvalidValue). Don't set it.
+- `torch.compile` **doesn't work** (needs Triton, unavailable for ROCm on Windows). Run eager.
+- DP-SGD will be several times slower per token (per-example gradients), so DP runs may need the S model and/or fewer tokens.
+
+---
+
 ## 6. Next steps (in order)
 1. **Submit the proposal by Wed Nov 18** (paragraph in section 7; switch to "I" if solo).
-2. `model.py`: GPT from scratch (token + position embeddings, causal multi-head self-attention, MLP, pre-LayerNorm, weight tying). Tests: shapes, causal masking (future tokens can't affect past outputs), can overfit one batch.
+2. ~~`model.py`~~ done. ~~Benchmark~~ done.
 3. `train.py`: memmap data loader, AdamW + cosine LR schedule, bf16 autocast, grad clipping, periodic val loss + sample generations, checkpoints, logs to `experiments/results/`.
-4. Pick model size from a quick throughput benchmark on the RX 7800 XT; train the baseline.
+4. Pick model size (recommendation: M, 27.5M params, ~2 h/epoch) and train the baseline.
 5. `canaries.py` / `extract.py` → `defense.py` (dedup, then DP-SGD) → plots → report.
 
 ---
