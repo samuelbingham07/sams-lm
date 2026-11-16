@@ -152,6 +152,15 @@ class GPT(nn.Module):
         elif isinstance(m, nn.Embedding):
             nn.init.normal_(m.weight, mean=0.0, std=0.02)
 
+    @classmethod
+    def from_checkpoint(cls, path, device="cpu"):
+        """Load a model saved by train.py (ckpt.pt, model_step<N>.pt or final.pt), in eval mode."""
+        ck = torch.load(path, map_location=device, weights_only=False)
+        model = cls(GPTConfig(**ck["config"]))
+        model.load_state_dict(ck["model"])
+        model.ckpt_step = ck.get("step")   # training steps this checkpoint has seen
+        return model.to(device).eval()
+
     def num_params(self, non_embedding: bool = True) -> int:
         """Parameter count. By convention, position embeddings are excluded for
         the 'non-embedding' count (the tied token embedding is counted once)."""

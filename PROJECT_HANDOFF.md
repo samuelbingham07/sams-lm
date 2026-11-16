@@ -70,10 +70,10 @@ How the project maps onto them:
 ### Open decisions (not yet locked)
 - [ ] Partner: asked, awaiting answer (solo is fine).
 - [x] GPU: AMD RX 7800 XT, 16 GB VRAM, ROCm PyTorch working (see HARDWARE.md).
-- [ ] Final model size (16 GB VRAM → top of the 10–60M param range is feasible).
+- [x] Model size: M (8 layers, 512 wide, 27.5M params), ~2 h per epoch.
 - [x] Tokenizer: byte-level BPE, vocab 4096. Context length: 512 planned.
 - [x] Keep natural duplicates in baseline training data (so dedup has something to remove).
-- [ ] Defense: DP-SGD (Opacus) vs. dedup vs. both. Start with dedup (simpler), add DP-SGD if time.
+- [x] Defenses: both. Exact dedup (`src/dedup.py`) and hand-written DP-SGD (`src/dp_sgd.py`; Opacus is used only to cross-check the accountant in tests).
 - [ ] Stretch: Gradio/web demo for portfolio.
 
 ---
@@ -125,7 +125,8 @@ pip install numpy matplotlib tqdm datasets tiktoken ftfy pytest
 - `ftfy` → repair mojibake during data cleaning. `pytest` → tests.
 - `datasets` → download TinyStories (`roneneldan/TinyStories` on Hugging Face).
 - `tiktoken` → reference tokenizer for comparison (we still build our own BPE).
-- Later, if doing DP-SGD: `pip install opacus`.
+- `scikit-learn` (attack metrics, as in class), `scipy` (accountant), `matplotlib` (figures).
+- `opacus` installed with `--no-deps`, only so tests can check our accountant against it.
 - Later, if doing a demo: `pip install gradio`.
 
 Freeze versions when stable: `pip freeze > requirements.txt`
@@ -146,18 +147,26 @@ Sam's LM/
     tokenizer.py            ✓ byte-level BPE, from scratch (train / encode / decode / save / load)
     encode_data.py          ✓ -> data/tokens/{split}.bin (uint16) + {split}_offsets.npy
     model.py                ✓ GPT from scratch: explicit causal attention, pre-LN blocks, weight tying, generate()
-    train.py                  training loop, checkpointing, loss logging
-    generate.py               sampling / text generation
-    canaries.py               insert canary secrets into training data
-    extract.py                membership inference + extraction attacks
-    defense.py                dedup and DP-SGD training variants
+    train.py                ✓ training loop: AdamW, warmup+cosine, bf16, checkpoints, exact resume, samples
+    generate.py             ✓ write stories with any checkpoint
+    canaries.py             ✓ plant 160 canaries (0-64 copies) -> data/tokens_canary/ and data/tokens_canary_dedup/
+    dedup.py                ✓ defense 1: exact story-level dedup
+    dp_sgd.py               ✓ defense 2: DP-SGD (per-example grads via torch.func, clip, Gaussian noise)
+    accountant.py           ✓ RDP accountant -> epsilon (matches Opacus)
+    coverage.py             ✓ replays the sampler: exactly how often each story/canary was seen
+    extract.py              ✓ attacks: canary extraction + exposure, membership inference (sklearn.metrics), val loss
+    plots.py                ✓ figures + results table -> experiments/results/figures/, results_table.md
   tests/
     test_tokenizer.py       ✓ 26 tests incl. exact match vs. naive reference BPE
     test_model.py           ✓ 14 tests: causality, explicit attn == SDPA, overfits a batch, per-example grads (DP-SGD)
+    test_train.py           ✓ 4 tests: LR schedule, loader, tiny run learns, pause + resume == uninterrupted
+    test_canaries.py        ✓ 10 tests: insertion positions, dedup, sampler replay == real loader, coverage
+    test_extract.py         ✓ 5 tests: scoring == direct computation, exact rank == brute force, sklearn eval
+    test_dp.py              ✓ 7 tests: accountant == Opacus, clipping bound, DP step == normal grad w/o clip/noise, resume
   experiments/
     benchmark.py            ✓ throughput of candidate model sizes
-    plots.py                  report figures
-    results/                  loss logs, generations, metrics (committed)
+    queue_overnight*.ps1    ✓ the overnight job queues (what was run, in order)
+    results/                ✓ per run: config.json, log.jsonl, samples.txt, attacks/ (committed)
   report/  report.pdf, reflection.txt
   slides/
 ```
@@ -201,12 +210,39 @@ Training throughput on the RX 7800 XT, bf16 autocast, batch 32 x 512 tokens (`ex
 
 ---
 
+## 5c. Experiment design (built 2026-11-16)
+
+**Runs** (all model M, seed 1337, same recipe unless noted):
+
+| Run | Training data | Notes |
+|---|---|---|
+| `baseline_M` | clean TinyStories | no canaries; quality reference + "never trained on it" canary reference |
+| `canary_M` | + 2,540 canary docs | the attack target, no defense |
+| `canary_dedup_M` | canary data after exact dedup | defense 1; same number of steps as canary_M (compute-matched, ~1.19 epochs of the smaller data) |
+| `dp_eps8_M` | canary data | defense 2: DP-SGD, ε = 8, δ = 1/(10N), C = 1, 800 steps × 512 examples (~210M tokens) |
+
+**Canaries** (`src/canaries.py`): 160 short stories, "{Name} was a little {animal} ... {Name}'s secret number was 3 9 1 4 7 2. ...", with invented names checked absent from TinyStories. 20 canaries each at 0 (held out), 1, 2, 4, 8, 16, 32, 64 copies. 165,782 tokens inserted (0.03%).
+
+**Dedup** removed 322,641 docs (320,241 natural duplicates + 2,400 extra canary copies): 484.3M → 408.1M tokens.
+
+**Coverage matters.** train.py samples random 512-token windows, so in one epoch a whole story is only fully inside some window with probability about 1 − exp(−(512−L)/512): roughly half of stories ≤256 tokens are *never* fully seen, and a canary inserted k times is seen ~k times on average with Poisson spread. `coverage.py` replays the seeded sampler exactly, so every attack result is reported against **times actually seen**, not just "in the file".
+
+**Attacks** (`src/extract.py`), all with sklearn.metrics:
+- *Canary extraction:* greedy completion of the prefix; **exposure** = log2(10^6) − log2(rank of the true secret among all 10^6), rank estimated from 5,000 random candidates, exact pruned search when the secret beats almost all of them. Random guessing averages 1/ln 2 ≈ 1.44 bits (verified on the baseline); max 19.9.
+- *Membership inference:* loss and zlib-normalized loss (Carlini 2021). Members grouped by times seen (0, 1, 2, 3+) plus a natural-mix group; non-members are validation stories, **length-matched** to each member group (length affects both coverage and loss, so unmatched comparisons are confounded). ROC-AUC, TPR at 1%/10% FPR, and accuracy/precision/recall/F1/confusion matrix at a threshold chosen on a separate calibration half.
+- *Utility:* loss/perplexity over the entire validation set.
+
+**DP-SGD details** (`src/dp_sgd.py`): data cut into fixed 512-token examples (N ≈ 945k), Poisson sampling with q = 512/N, per-example gradients with `torch.func.vmap(grad(...))`, clip to C = 1, add N(0, σ²C²), AdamW (post-processing, no extra privacy cost). σ is solved from the target ε by our RDP accountant. Privacy unit = one 512-token example; a canary with k copies only gets roughly kε (group privacy), which the results should show. Throughput ~15–25K tok/s (vs ~70K normal).
+
+---
+
 ## 6. Next steps (in order)
 1. **Submit the proposal by Wed Nov 18** (paragraph in section 7; switch to "I" if solo).
-2. ~~`model.py`~~ done. ~~Benchmark~~ done.
-3. `train.py`: memmap data loader, AdamW + cosine LR schedule, bf16 autocast, grad clipping, periodic val loss + sample generations, checkpoints, logs to `experiments/results/`.
-4. Pick model size (recommendation: M, 27.5M params, ~2 h/epoch) and train the baseline.
-5. `canaries.py` / `extract.py` → `defense.py` (dedup, then DP-SGD) → plots → report.
+2. ~~model.py, benchmark, train.py, baseline training~~ done.
+3. ~~canaries.py, dedup.py, coverage.py, extract.py, dp_sgd.py, accountant.py, plots.py~~ written + tested (65 tests).
+4. Overnight 2026-11-16 (queued): canary_M → canary_dedup_M → attacks on all → dp_eps8_M → attacks → figures. Logs: `checkpoints/*_stdout.log`, `checkpoints/queue2.log`.
+5. Review results; decide on extras (a second ε such as 1 or 32 for a privacy-utility curve; shadow-model MIA from L16 as a stretch; memorization over training using the snapshots).
+6. Report, slides, reflection.txt.
 
 ---
 

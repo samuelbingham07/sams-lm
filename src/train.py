@@ -166,7 +166,7 @@ def main(argv=None):
         opt.load_state_dict(ck["optimizer"])
         step = ck["step"]
         train.rng.bit_generator.state = ck["data_rng"]
-        torch.set_rng_state(ck["torch_rng"])
+        torch.set_rng_state(ck["torch_rng"].cpu())  # map_location moved it to the GPU; must be a CPU ByteTensor
         print(f"resumed from step {step}")
     elif args.resume:
         print("no checkpoint found; starting fresh")
