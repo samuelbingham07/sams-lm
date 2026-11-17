@@ -126,7 +126,8 @@ def canary_plots(data):
     save(fig, "canary_exposure.png")
 
     # Extraction rate (beam search over digit strings; attacker knows the format)
-    runs = [r for r in have if r != "baseline_M"] or list(have)
+    # Representative runs only (the other DP budgets are 0% too; see results_table.md).
+    runs = [r for r in ("canary_M", "canary_dedup_M", "dp_eps8_M", "dp_sigma0_M") if r in have] or list(have)
     w = 0.8 / len(runs)
     fig, axes = plt.subplots(1, 2, figsize=(10, 3.6), sharey=True)
     panels = [("extracted_beam", "Top guess is the secret"), ("in_top100", "Secret in top 100 guesses")]

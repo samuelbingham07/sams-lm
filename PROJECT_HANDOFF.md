@@ -220,6 +220,17 @@ Training throughput on the RX 7800 XT, bf16 autocast, batch 32 x 512 tokens (`ex
 | `canary_M` | + 2,540 canary docs | the attack target, no defense |
 | `canary_dedup_M` | canary data after exact dedup | defense 1; same number of steps as canary_M (compute-matched, ~1.19 epochs of the smaller data) |
 | `dp_eps8_M` | canary data | defense 2: DP-SGD, ε = 8, δ = 1/(10N), C = 1, 800 steps × 512 examples (~210M tokens) |
+| `dp_eps29_M` | canary data | DP-SGD, σ = 0.30 → ε = 29.4 (asked for 64; a σ-search floor bug, now fixed, clamped it) |
+| `dp_eps64_M` | canary data | DP-SGD, ε = 63.8 |
+| `dp_sigma0_M` | canary data | control: the DP-SGD recipe (clipping, Poisson sampling, 800 steps) with **no noise**, ε = ∞ |
+
+**Results (2026-11-17, `experiments/results/results_table.md`, figures in `experiments/results/figures/`):**
+- No defense: memorization grows with repetition. Exposure at chance up to 8 copies, then 5.7 / 8.8 / 15.5 bits at 16 / 32 / 64. Beam search (attacker knows the format) recovers 15% of 64-copy secrets as its top guess and 70% within 100 guesses; greedy only 5%.
+- Dedup: exposure at chance at every level, 0% extracted, **no utility cost** (val loss 1.348 vs 1.347).
+- DP-SGD at ε = 8 / 29 / 64: exposure at chance, 0% extracted, but val loss 3.98 / 3.82 / 3.80 vs 1.35 (huge cost).
+- No-noise control: val loss 1.73, exposure 4.5 bits at 64 copies. So the *noise* is what removes memorization (and what costs most utility); clipping alone reduces memorization partly (9.3 → 4.5 bits at equal views). Why the noise hurts even at ε = 64: noise norm ≈ σ·√d / B ≈ 2 vs a clipped mean gradient ≤ 1, with d = 27.5M params and B = 512. Larger batches (as in the DP-SGD literature) would help.
+- Membership inference is weak on every model (AUC 0.49–0.55, higher for stories seen 3+ times): after ~1 epoch the model generalizes, so the leak is concentrated in repeated data.
+- Bugs found and fixed along the way (worth a sentence in the report): ROCm driver crash on many tensor shapes (pad to fixed lengths), exposure overestimated when the exact rank search hit its budget, noise search clamping ε.
 
 **Canaries** (`src/canaries.py`): 160 short stories, "{Name} was a little {animal} ... {Name}'s secret number was 3 9 1 4 7 2. ...", with invented names checked absent from TinyStories. 20 canaries each at 0 (held out), 1, 2, 4, 8, 16, 32, 64 copies. 165,782 tokens inserted (0.03%).
 
@@ -240,8 +251,8 @@ Training throughput on the RX 7800 XT, bf16 autocast, batch 32 x 512 tokens (`ex
 1. **Submit the proposal by Wed Nov 18** (paragraph in section 7; switch to "I" if solo).
 2. ~~model.py, benchmark, train.py, baseline training~~ done.
 3. ~~canaries.py, dedup.py, coverage.py, extract.py, dp_sgd.py, accountant.py, plots.py~~ written + tested (65 tests).
-4. Overnight 2026-11-16 (queued): canary_M → canary_dedup_M → attacks on all → dp_eps8_M → attacks → figures. Logs: `checkpoints/*_stdout.log`, `checkpoints/queue2.log`.
-5. Review results; decide on extras (a second ε such as 1 or 32 for a privacy-utility curve; shadow-model MIA from L16 as a stretch; memorization over training using the snapshots).
+4. ~~All runs trained and attacked~~ (see 5c results). Beam-search extraction and the DP ε sweep + no-noise control added. No prediction-time noise defense (decided 2026-11-16).
+5. Optional extras: shadow-model MIA (L16); memorization over training using the baseline snapshots; DP-SGD with a larger batch to show the utility gap shrinking.
 6. Report, slides, reflection.txt.
 
 ---

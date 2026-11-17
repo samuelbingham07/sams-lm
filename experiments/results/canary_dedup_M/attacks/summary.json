@@ -9,6 +9,8 @@
     "0": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.6874947935123736,
       "exposure_median": 1.5395228745242058,
       "times_seen_mean": 0.0,
@@ -17,6 +19,8 @@
     "1": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 2.056577550769719,
       "exposure_median": 1.4791603846525607,
       "times_seen_mean": 0.7,
@@ -25,6 +29,8 @@
     "2": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.5125617911578058,
       "exposure_median": 1.0986323751274742,
       "times_seen_mean": 1.0,
@@ -33,6 +39,8 @@
     "4": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.3679484074133303,
       "exposure_median": 1.0201175928223698,
       "times_seen_mean": 1.25,
@@ -41,6 +49,8 @@
     "8": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.559023516089653,
       "exposure_median": 1.2123299961709648,
       "times_seen_mean": 0.75,
@@ -49,6 +59,8 @@
     "16": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 2.4317524623487814,
       "exposure_median": 1.824448142848599,
       "times_seen_mean": 1.2,
@@ -57,6 +69,8 @@
     "32": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.511128398715851,
       "exposure_median": 1.071170603745479,
       "times_seen_mean": 1.2,
@@ -65,6 +79,8 @@
     "64": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.6019056086012697,
       "exposure_median": 1.2806850931876443,
       "times_seen_mean": 1.0,

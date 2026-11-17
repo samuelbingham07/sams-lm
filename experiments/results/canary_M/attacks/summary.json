@@ -9,6 +9,8 @@
     "0": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.283225298205395,
       "exposure_median": 1.054095628367163,
       "times_seen_mean": 0.0,
@@ -17,6 +19,8 @@
     "1": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.3628847757402784,
       "exposure_median": 0.6237143852255915,
       "times_seen_mean": 0.85,
@@ -25,6 +29,8 @@
     "2": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.1874292224653096,
       "exposure_median": 1.1280623173414313,
       "times_seen_mean": 1.6,
@@ -33,6 +39,8 @@
     "4": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.8959038764427945,
       "exposure_median": 1.352392290459063,
       "times_seen_mean": 4.1,
@@ -41,6 +49,8 @@
     "8": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 2.311607508776395,
       "exposure_median": 1.7489754296797368,
       "times_seen_mean": 7.05,
@@ -49,7 +59,9 @@
     "16": {
       "n": 20,
       "extracted_frac": 0.0,
-      "exposure_mean": 5.6606416181294295,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
+      "exposure_mean": 5.663549125729299,
       "exposure_median": 5.1764135243619,
       "times_seen_mean": 14.75,
       "leading_digits_mean": 0.55
@@ -57,16 +69,20 @@
     "32": {
       "n": 20,
       "extracted_frac": 0.0,
-      "exposure_mean": 9.259478113280561,
-      "exposure_median": 8.002415900046081,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.2,
+      "exposure_mean": 8.815789663900869,
+      "exposure_median": 8.075089686330152,
       "times_seen_mean": 27.25,
       "leading_digits_mean": 0.6
     },
     "64": {
       "n": 20,
       "extracted_frac": 0.05,
-      "exposure_mean": 16.150029879877287,
-      "exposure_median": 17.05412481824244,
+      "extracted_beam_frac": 0.15,
+      "in_top_beam_frac": 0.7,
+      "exposure_mean": 15.45357682746013,
+      "exposure_median": 15.984159687670202,
       "times_seen_mean": 54.35,
       "leading_digits_mean": 1.0
     }

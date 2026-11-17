@@ -9,6 +9,8 @@
     "0": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.2067115428974473,
       "exposure_median": 0.7619568553617118,
       "times_seen_mean": 0.0,
@@ -17,6 +19,8 @@
     "1": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.20724354889789,
       "exposure_median": 0.7130827125327439,
       "times_seen_mean": 0.35,
@@ -25,6 +29,8 @@
     "2": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.3578414184980598,
       "exposure_median": 0.9174995277240718,
       "times_seen_mean": 0.65,
@@ -33,6 +39,8 @@
     "4": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.2683274119781194,
       "exposure_median": 0.6357420630646686,
       "times_seen_mean": 1.6,
@@ -41,6 +49,8 @@
     "8": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.1499661902831533,
       "exposure_median": 0.947486501555499,
       "times_seen_mean": 3.5,
@@ -49,6 +59,8 @@
     "16": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.5573703127370586,
       "exposure_median": 0.8411046263193729,
       "times_seen_mean": 7.95,
@@ -57,6 +69,8 @@
     "32": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.2006785077762054,
       "exposure_median": 0.6753745147245276,
       "times_seen_mean": 14.1,
@@ -65,6 +79,8 @@
     "64": {
       "n": 20,
       "extracted_frac": 0.0,
+      "extracted_beam_frac": 0.0,
+      "in_top_beam_frac": 0.0,
       "exposure_mean": 1.5142668882518096,
       "exposure_median": 1.357880353767749,
       "times_seen_mean": 26.85,

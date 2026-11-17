@@ -1,0 +1,8 @@
+{"step": 100, "tokens": 26214400, "val_loss": 3.5991913616657256, "lr": 0.0009905544619221384, "epsilon": Infinity, "time": 1794896416.0437772, "grad_norm_median": 2.5642192363739014, "clipped_frac": 1.0}
+{"step": 200, "tokens": 52428800, "val_loss": 2.697946572303772, "lr": 0.0009151623994606123, "epsilon": Infinity, "time": 1794896861.0445364, "grad_norm_median": 4.299389839172363, "clipped_frac": 1.0}
+{"step": 300, "tokens": 78643200, "val_loss": 2.259906846284866, "lr": 0.0007766304407360924, "epsilon": Infinity, "time": 1794897311.9329398, "grad_norm_median": 4.764873027801514, "clipped_frac": 1.0}
+{"step": 400, "tokens": 104857600, "val_loss": 2.026944321393967, "lr": 0.0005989120199353834, "epsilon": Infinity, "time": 1794897759.016764, "grad_norm_median": 5.161884307861328, "clipped_frac": 1.0}
+{"step": 500, "tokens": 131072000, "val_loss": 1.8845667243003845, "lr": 0.0004127362665360951, "epsilon": Infinity, "time": 1794898206.90709, "grad_norm_median": 5.37196683883667, "clipped_frac": 1.0}
+{"step": 600, "tokens": 157286400, "val_loss": 1.8010624319314956, "lr": 0.0002502946596545868, "epsilon": Infinity, "time": 1794898657.09745, "grad_norm_median": 5.6969828605651855, "clipped_frac": 1.0}
+{"step": 700, "tokens": 183500800, "val_loss": 1.7475283533334731, "lr": 0.000139674828856341, "epsilon": Infinity, "time": 1794899103.4270122, "grad_norm_median": 6.04622220993042, "clipped_frac": 1.0}
+{"step": 800, "tokens": 209715200, "val_loss": 1.7167637676000596, "lr": 0.00010000394783598807, "epsilon": Infinity, "time": 1794899552.6461296, "grad_norm_median": 6.30575704574585, "clipped_frac": 1.0}
