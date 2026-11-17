@@ -223,12 +223,20 @@ Training throughput on the RX 7800 XT, bf16 autocast, batch 32 x 512 tokens (`ex
 | `dp_eps29_M` | canary data | DP-SGD, σ = 0.30 → ε = 29.4 (asked for 64; a σ-search floor bug, now fixed, clamped it) |
 | `dp_eps64_M` | canary data | DP-SGD, ε = 63.8 |
 | `dp_sigma0_M` | canary data | control: the DP-SGD recipe (clipping, Poisson sampling, 800 steps) with **no noise**, ε = ∞ |
+| `dp_bigbatch_eps8_M` | canary data | DP-SGD, ε = 8, 8× batch (4,096 examples), 200 steps |
+| `shadow_M` | the "in" half of the canary data (no canaries) | shadow model for the shadow/reference MIA, seed 7 |
 
 **Results (2026-11-17, `experiments/results/results_table.md`, figures in `experiments/results/figures/`):**
 - No defense: memorization grows with repetition. Exposure at chance up to 8 copies, then 5.7 / 8.8 / 15.5 bits at 16 / 32 / 64. Beam search (attacker knows the format) recovers 15% of 64-copy secrets as its top guess and 70% within 100 guesses; greedy only 5%.
 - Dedup: exposure at chance at every level, 0% extracted, **no utility cost** (val loss 1.348 vs 1.347).
 - DP-SGD at ε = 8 / 29 / 64: exposure at chance, 0% extracted, but val loss 3.98 / 3.82 / 3.80 vs 1.35 (huge cost).
-- No-noise control: val loss 1.73, exposure 4.5 bits at 64 copies. So the *noise* is what removes memorization (and what costs most utility); clipping alone reduces memorization partly (9.3 → 4.5 bits at equal views). Why the noise hurts even at ε = 64: noise norm ≈ σ·√d / B ≈ 2 vs a clipped mean gradient ≤ 1, with d = 27.5M params and B = 512. Larger batches (as in the DP-SGD literature) would help.
+- No-noise control: val loss 1.73, exposure 4.5 bits at 64 copies. So the *noise* is what removes memorization (and what costs most utility); clipping alone reduces memorization partly (9.3 → 4.5 bits at equal views). Why the noise hurts even at ε = 64: the noise on the averaged gradient has norm ≈ σ·√d / B (d = 27.5M params, √d ≈ 5,240), e.g. 0.43 · 5,240 / 512 ≈ 4.4 at ε = 8, against a clipped mean gradient of norm ≤ 1.
+- **Large-batch DP (`dp_bigbatch_eps8_M`):** ε = 8, B = 4,096, 200 steps (σ = 0.51): noise norm ≈ 0.66, so 6.7× less noise than `dp_eps8_M`. Val loss improved only 3.98 → 3.86; still 0% extracted, exposure at chance, every MIA at chance. Why so little: the run is now **step-limited, not noise-limited**. The non-private recipe has train loss 3.83 after 200 steps, so DP at 4,096/step matches non-private training step-for-step, but ε caps the step count (more steps at this q cost more ε). Closing the gap needs more steps at a large batch (larger ε, or more data so q drops), not just bigger batches.
+- **Memorization over training** (canary_M snapshots every 2,500 steps, ~82M tokens): canary exposure stays near chance for the first ~250M tokens, then rises steeply (64 copies: 2.1 → 3.8 → 4.9 → 7.2 → 13.1 → 15.5 bits). Beam top-100 for 64 copies: 0, 5, 5, 5, 50, 70%. Most memorization happens late, as the learning rate decays and the model fits details. Loss-MIA AUC stays ~0.52–0.55 throughout.
+- **Shadow-model MIA** (`src/shadow.py`, L16): hash-level 50/50 split of the canary data (canaries excluded), shadow = same recipe on the "in" half, seed 7 (val loss 1.413). Test members come from the "out" half (target saw them, shadow did not), non-members are validation stories. On the no-defense model:
+  - Shokri-style attack classifier (LogReg on loss/zlib/Min-20%/length, trained on shadow in vs out): AUC 0.567 for seen 3+, barely better than the plain loss attack (0.537). The shadow's own members are hardly separable (in-sample AUC 0.52), so there is little signal to learn.
+  - **Reference-model calibration** (shadow loss − target loss, per story): AUC **0.80** for seen 3+, 0.64 for stories seen *once*, 0.61 for any training story; TPR@1%FPR 17% for seen 3+. Calibrating per example removes "this story is just easy" and exposes the leak the plain loss attack missed. So "MIA is weak" was a property of the weak attack, not the model.
+  - Dedup barely changes this (0.78): it removes duplicate *copies*, not membership of unique stories. The no-noise DP control drops it to 0.63 (clipping + fewer steps), and DP-SGD (ε = 8, both batch sizes) drops it to chance (0.49–0.51).
 - Membership inference is weak on every model (AUC 0.49–0.55, higher for stories seen 3+ times): after ~1 epoch the model generalizes, so the leak is concentrated in repeated data.
 - Bugs found and fixed along the way (worth a sentence in the report): ROCm driver crash on many tensor shapes (pad to fixed lengths), exposure overestimated when the exact rank search hit its budget, noise search clamping ε.
 
@@ -252,7 +260,7 @@ Training throughput on the RX 7800 XT, bf16 autocast, batch 32 x 512 tokens (`ex
 2. ~~model.py, benchmark, train.py, baseline training~~ done.
 3. ~~canaries.py, dedup.py, coverage.py, extract.py, dp_sgd.py, accountant.py, plots.py~~ written + tested (65 tests).
 4. ~~All runs trained and attacked~~ (see 5c results). Beam-search extraction and the DP ε sweep + no-noise control added. No prediction-time noise defense (decided 2026-11-16).
-5. Optional extras: shadow-model MIA (L16); memorization over training using the baseline snapshots; DP-SGD with a larger batch to show the utility gap shrinking.
+5. ~~Extras: shadow-model MIA, memorization over training, large-batch DP-SGD~~ done 2026-11-17 (see 5c). Bug found: sampling bytes hash keys with rng.choice strips trailing NULs (KeyError); now samples indices, with a regression test.
 6. Report, slides, reflection.txt.
 
 ---

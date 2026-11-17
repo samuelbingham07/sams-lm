@@ -274,7 +274,7 @@ def memorization_over_training():
         a1.plot(tok, [s["canaries"][reps]["exposure_mean"] for _, s in snaps], color=c, marker="o", ms=5,
                 label=f"{reps} copies")
     a1.axhline(1 / np.log(2), color=MUTED, lw=0.8, ls="--")
-    a1.text(tok[0], 1 / np.log(2) + 0.3, "random guessing", fontsize=8, color=MUTED, va="bottom")
+    a1.text(tok[-1], 1 / np.log(2) - 0.3, "random guessing", fontsize=8, color=MUTED, va="top", ha="right")
     a1.set_xlabel("Tokens trained (millions)")
     a1.set_ylabel("Mean canary exposure (bits)")
     a1.set_title("Canary memorization during training", fontsize=10, color=TEXT)
@@ -314,7 +314,7 @@ def shadow_mia():
             a2.plot(xs, [r[a][g]["tpr_at_1pct_fpr"] * 100 for g in groups], color=c, marker="o", ms=5, label=label)
         a1.axhline(0.5, color=MUTED, lw=0.8, ls="--")
         a2.axhline(1, color=MUTED, lw=0.8, ls="--")
-        a2.text(0, 1.1, "chance", fontsize=8, color=MUTED, va="bottom")
+        a2.text(4, 0.9, "chance", fontsize=8, color=MUTED, va="top", ha="right")
         for ax in (a1, a2):
             ax.set_xticks(xs, [names[g] for g in groups])
             ax.set_xlabel("Member stories (by times the target saw them)")

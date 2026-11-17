@@ -68,6 +68,18 @@ def test_story_features_match_direct_computation():
         assert row[3] == pytest.approx(np.log(len(s)))
 
 
+def test_attack_classifier_handles_hashes_ending_in_nul():
+    # Regression: sampling the dict keys with rng.choice turned them into np.bytes_, which drops
+    # trailing b"\x00", so the lookup raised KeyError on the real split.
+    torch.manual_seed(0)
+    m = GPT(GPTConfig(vocab_size=64, block_size=32, n_layer=1, n_head=2, n_embd=16)).eval()
+    rng = np.random.default_rng(2)
+    def pool(tag):
+        return {bytes([tag, i]) + b"\x00" * (i % 3): rng.integers(0, 60, size=8).tolist() for i in range(30)}
+    clf, _, coefs, used = shadow.train_attack_classifier(m, _Tok(), pool(1), pool(2), 20, "cpu")
+    assert set(coefs) == set(shadow.FEATURES) and len(used) <= 20
+
+
 def test_evaluate_mia_custom_attack_signs():
     rng = np.random.default_rng(0)
     items = []

@@ -156,8 +156,12 @@ def train_attack_classifier(shadow, tok, pool_in, pool_out, n, device, seed=0):
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
     rng = np.random.default_rng(seed)
-    ins = [pool_in[k] for k in rng.choice(list(pool_in), size=n, replace=False)]
-    outs = [pool_out[k] for k in rng.choice(list(pool_out), size=n, replace=False)]
+    # Sample indices, not the keys themselves: rng.choice on a list of bytes makes np.bytes_,
+    # which strips trailing NUL bytes, so hashes ending in b"\x00" would no longer be dict keys.
+    def sample(pool):
+        keys = list(pool)
+        return [pool[keys[i]] for i in rng.choice(len(keys), size=n, replace=False)]
+    ins, outs = sample(pool_in), sample(pool_out)
     X = np.r_[story_features(shadow, tok, ins, device), story_features(shadow, tok, outs, device)]
     y = np.r_[np.ones(n), np.zeros(n)]
     clf = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000)).fit(X, y)
