@@ -71,6 +71,29 @@ def test_beam_digits_matches_brute_force(model):
         assert abs(lp - lps[all_s.index(s)]) < 1e-4
 
 
+class _FakeTok:
+    eot_id = 63
+
+    def encode(self, text):
+        return [ord(c) % 60 for c in text]
+
+    def decode(self, ids):
+        return ""
+
+
+def test_failed_exact_search_never_claims_rank_one(model, monkeypatch):
+    # Regression: if no sampled candidate beat the secret and the exact search ran
+    # out of budget, rank stayed at 1, i.e. maximum exposure for an unextracted secret.
+    def fake_lps(model, seqs, score_from, device, batch_size=256, bf16=True, pad_to=64):
+        return -np.arange(len(seqs), dtype=float), np.ones(len(seqs), dtype=np.int64)  # first = secret = best
+    monkeypatch.setattr(extract, "seq_logprobs", fake_lps)
+    monkeypatch.setattr(extract, "exact_rank", lambda *a, **k: (None, 0.0))
+    c = {"id": 0, "name": "Zib", "secret": "123456", "reps": 64, "prefix": "Zib's secret number was"}
+    row = extract.canary_attack(model, _FakeTok(), [c], "cpu", n_samples=200, log=lambda *_: None)[0]
+    assert row["rank_method"] == "sampled_corrected"
+    assert row["rank"] > 1 and row["exposure"] < extract.exposure(1)
+
+
 def test_exposure():
     assert extract.exposure(1) == pytest.approx(np.log2(1e6))
     assert extract.exposure(1e6) == pytest.approx(0)

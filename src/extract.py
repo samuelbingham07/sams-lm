@@ -192,9 +192,17 @@ def canary_attack(model, tok, canaries, device, times_seen=None, n_samples=5000,
         rank = 1 + n_greater / n_samples * (SPACE - 1)
         method = "sampled"
         if n_greater <= 20:   # secret beats nearly all samples: estimate is too coarse, compute exactly
-            r, lp32 = exact_rank(model, ctx, secret, digit_toks, device)
-            if r is not None:
-                rank, true_lp, method = r, lp32, "exact"
+            for budget in (30_000, 300_000):
+                r, lp32 = exact_rank(model, ctx, secret, digit_toks, device, budget=budget)
+                if r is not None:
+                    rank, true_lp, method = r, lp32, "exact"
+                    break
+            else:
+                # Exact search too expensive (many close competitors). Zero sampled
+                # wins must not become "rank 1" (= maximum exposure); use the
+                # continuity-corrected estimate, half a win out of n_samples.
+                rank = 1 + max(n_greater, 0.5) / n_samples * (SPACE - 1)
+                method = "sampled_corrected"
         rows.append({"id": c["id"], "name": c["name"], "secret": secret, "reps": c["reps"],
                      "times_seen": int(times_seen[c["id"]]) if times_seen is not None else 0,
                      "greedy": got[:N_DIGITS], "extracted": got[:N_DIGITS] == secret,
