@@ -7,7 +7,9 @@ Figures (experiments/results/figures/):
   privacy_utility.png     DP-SGD sweep: utility and canary exposure vs. epsilon
   exposure_vs_seen.png    exposure vs. times the model actually saw each canary
   mia_roc.png             membership-inference ROC curves (loss attack)
-Table: experiments/results/results_table.md (privacy vs. utility)
+  memorization_over_training.png   canary exposure / MIA through training (canary_M snapshots)
+  shadow_mia.png          shadow-model and reference-model membership inference vs. the loss attack
+Table: experiments/results/results_table.md (privacy vs. utility; + shadow-model MIA)
 
 Skips any run that doesn't have results yet.  Usage:  python src/plots.py
 """
@@ -42,6 +44,8 @@ RUNS = {
     "dp_eps64_M": {"label": "DP-SGD (ε=64)", "color": "#1baf7a", "ls": "-.", "eps": 64},
     # Control: the DP-SGD recipe (clipping, Poisson sampling, 800 steps) with no noise.
     "dp_sigma0_M": {"label": "DP recipe, no noise (ε=∞)", "color": "#5cc79a", "ls": ":", "eps": float("inf")},
+    # Same epsilon as dp_eps8_M with 8x the batch (4096) and 1/4 the steps: a different recipe, own hue.
+    "dp_bigbatch_eps8_M": {"label": "DP-SGD (ε=8, 8× batch)", "color": "#7b55c7", "ls": "--"},
 }
 TEXT, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
@@ -215,8 +219,15 @@ def privacy_utility(data):
     green, blue = "#1baf7a", RUNS["canary_M"]["color"]
     cols = [green] * len(pts) + [blue]
 
+    big = data.get("dp_bigbatch_eps8_M", {})
+    if "summary" in big:          # extra category right after eps=8, not on the sweep line
+        ds.insert(1, big)
+        labels.insert(1, "ε=8,\n8× batch")
+        cols.insert(1, RUNS["dp_bigbatch_eps8_M"]["color"])
+        xs = np.arange(len(ds))
+    on_line = [i for i in range(len(ds) - 1) if ds[i] is not big]
     vl = [d["summary"]["val_loss"] for d in ds]
-    a1.plot(xs[:-1], vl[:-1], color=green, marker="o", ms=6)
+    a1.plot(xs[on_line], np.array(vl)[on_line], color=green, marker="o", ms=6)
     a1.scatter(xs, vl, color=cols, s=40, zorder=3, edgecolor="white", lw=1)
     for x, v in zip(xs, vl):
         a1.annotate(f"{v:.2f}", (x, v), xytext=(0, 7), textcoords="offset points", ha="center",
@@ -243,7 +254,90 @@ def privacy_utility(data):
     save(fig, "privacy_utility.png")
 
 
-def table(data):
+def memorization_over_training():
+    """canary_M snapshots: exposure by copies, and loss-attack MIA AUC, vs. training step."""
+    base = RES / "canary_M"
+    snaps = []
+    for d in sorted(base.glob("attacks*")):
+        f = d / "summary.json"
+        if f.exists():
+            s = json.loads(f.read_text())
+            snaps.append((int(s["steps"]), s))
+    if len(snaps) < 3:
+        return
+    snaps.sort(key=lambda p: p[0])
+    steps = np.array([p[0] for p in snaps])
+    tok = steps * 32768 / 1e6          # tokens per step in train.py's recipe
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 3.6))
+    shades = {"16": "#79ade8", "32": "#2a78d6", "64": "#0d3f7a"}      # one hue, darker = more copies
+    for reps, c in shades.items():
+        a1.plot(tok, [s["canaries"][reps]["exposure_mean"] for _, s in snaps], color=c, marker="o", ms=5,
+                label=f"{reps} copies")
+    a1.axhline(1 / np.log(2), color=MUTED, lw=0.8, ls="--")
+    a1.text(tok[0], 1 / np.log(2) + 0.3, "random guessing", fontsize=8, color=MUTED, va="bottom")
+    a1.set_xlabel("Tokens trained (millions)")
+    a1.set_ylabel("Mean canary exposure (bits)")
+    a1.set_title("Canary memorization during training", fontsize=10, color=TEXT)
+    a1.set_ylim(0, 21)
+    a1.legend(loc="upper left", fontsize=8)
+    for g, c, label in (("seen3+", "#0d3f7a", "seen 3+ times"), ("train_any", "#79ade8", "any training story")):
+        a2.plot(tok, [s["mia"]["loss"][g]["auc"] for _, s in snaps], color=c, marker="o", ms=5, label=label)
+    a2.axhline(0.5, color=MUTED, lw=0.8, ls="--")
+    a2.set_xlabel("Tokens trained (millions)")
+    a2.set_ylabel("Loss-attack AUC")
+    a2.set_title("Membership inference during training", fontsize=10, color=TEXT)
+    a2.set_ylim(0.45, 0.65)
+    a2.legend(loc="upper left", fontsize=8)
+    save(fig, "memorization_over_training.png")
+
+
+SHADOW_ATTACKS = {"loss": ("Loss (no shadow)", "#8a8984"), "shadow_classifier": ("Shadow classifier", "#eb6834"),
+                  "reference": ("Reference model (loss)", "#2a78d6"),
+                  "reference_mink20": ("Reference model (Min-20%)", "#0d3f7a")}
+
+
+def shadow_mia():
+    f = RES / "shadow_mia" / "summary.json"
+    if not f.exists():
+        return None
+    s = json.loads(f.read_text())
+    tgt = s["targets"]
+    if "canary_M" in tgt:
+        r = tgt["canary_M"]
+        groups = [g for g in ("seen0", "seen1", "seen2", "seen3+", "train_any") if g in r["loss"]]
+        names = {"seen0": "never\nfully seen", "seen1": "seen\nonce", "seen2": "seen\ntwice", "seen3+": "seen\n3+",
+                 "train_any": "any\nstory"}
+        fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 3.6))
+        xs = np.arange(len(groups))
+        for a, (label, c) in SHADOW_ATTACKS.items():
+            a1.plot(xs, [r[a][g]["auc"] for g in groups], color=c, marker="o", ms=5, label=label)
+            a2.plot(xs, [r[a][g]["tpr_at_1pct_fpr"] * 100 for g in groups], color=c, marker="o", ms=5, label=label)
+        a1.axhline(0.5, color=MUTED, lw=0.8, ls="--")
+        a2.axhline(1, color=MUTED, lw=0.8, ls="--")
+        a2.text(0, 1.1, "chance", fontsize=8, color=MUTED, va="bottom")
+        for ax in (a1, a2):
+            ax.set_xticks(xs, [names[g] for g in groups])
+            ax.set_xlabel("Member stories (by times the target saw them)")
+        a1.set_ylabel("AUC")
+        a1.set_title("Attack strength, no-defense model", fontsize=10, color=TEXT)
+        a2.set_ylabel("True positives at 1% false positives (%)")
+        a2.set_title("Confident identifications", fontsize=10, color=TEXT)
+        a2.set_ylim(bottom=0)
+        a1.legend(loc="upper left", fontsize=8)
+        save(fig, "shadow_mia.png")
+    lines = ["", "### Shadow-model membership inference (members never seen by the shadow vs. validation)", "",
+             "| Run | " + " | ".join(f"{SHADOW_ATTACKS[a][0]} AUC (seen 3+ / any)" for a in SHADOW_ATTACKS)
+             + " | Best TPR@1%FPR (seen 3+) |",
+             "|---|" + "---|" * (len(SHADOW_ATTACKS) + 1)]
+    for run, r in tgt.items():
+        cells = [f"{r[a]['seen3+']['auc']:.3f} / {r[a]['train_any']['auc']:.3f}" for a in SHADOW_ATTACKS]
+        best = max(r[a]["seen3+"]["tpr_at_1pct_fpr"] for a in SHADOW_ATTACKS)
+        lines.append(f"| {RUNS.get(run, {'label': run})['label']} | " + " | ".join(cells) + f" | {best * 100:.1f}% |")
+    lines.append(f"\n(Attack classifier on the shadow itself, in-sample AUC {s['shadow_in_sample']['auc']:.3f}.)")
+    return "\n".join(lines) + "\n"
+
+
+def table(data, extra=""):
     lines = ["| Run | ε | Val loss | Val ppl | Extracted, greedy (64 copies) | Extracted, beam top-1 (64 copies) | "
              "Secret in beam top-100 (64 copies) | Mean exposure, 1 copy | Mean exposure, 16 copies | "
              "Mean exposure, 64 copies | MIA AUC (train vs. val) | MIA AUC (seen 3+) |",
@@ -264,8 +358,8 @@ def table(data):
                       f"{f('train_any')} | {f('seen3+')} |")
     out = RES / "results_table.md"
     out.write_text("\n".join(lines) + "\n\n(Baseline has no canaries in its data: its canary numbers are "
-                   "the 'never trained on it' reference. Exposure: 0 to 19.9 bits; random guessing averages 1.44.)\n",
-                   encoding="utf-8")
+                   "the 'never trained on it' reference. Exposure: 0 to 19.9 bits; random guessing averages 1.44.)\n"
+                   + (extra or ""), encoding="utf-8")
     print("wrote", out)
 
 
@@ -276,7 +370,8 @@ def main():
     canary_plots(data)
     mia_roc(data)
     privacy_utility(data)
-    table(data)
+    memorization_over_training()
+    table(data, shadow_mia())
 
 
 if __name__ == "__main__":

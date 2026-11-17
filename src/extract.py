@@ -347,21 +347,26 @@ def length_matched(mem_lens, non_lens, seed=0, bin_width=16):
     return np.array(out)
 
 
-def evaluate_mia(items):
-    """Each member group vs. an equal number of length-matched non-members."""
+def evaluate_mia(items, attacks=None):
+    """Each member group vs. an equal number of length-matched non-members.
+
+    attacks: {score name: sign}, sign +1 if a higher score means "member", -1 if
+    lower does (losses). Default: the loss and zlib attacks.
+    """
+    attacks = attacks or {"loss": -1, "zlib_score": -1}
     non = [it for it in items if it["member"] == 0]
     non_lens = [len(it["tokens"]) for it in non]
     groups = {g: [it for it in items if it["group"] == g] for g in ("seen0", "seen1", "seen2", "seen3+", "train_any")}
     seen = [it for it in items if it["group"] in ("seen1", "seen2", "seen3+")]
     groups["seen1+"] = [seen[i] for i in np.random.default_rng(0).permutation(len(seen))[:len(non)]]
-    out = {"loss": {}, "zlib_score": {}}
+    out = {a: {} for a in attacks}
     for group, mem in groups.items():
         if len(mem) < 10:
             continue
         match = length_matched([len(it["tokens"]) for it in mem], non_lens)
-        for attack in ("loss", "zlib_score"):     # lower loss -> member, so negate
-            out[attack][group] = binary_eval(-np.array([it[attack] for it in mem]),
-                                             -np.array([non[i][attack] for i in match]))
+        for attack, sign in attacks.items():
+            out[attack][group] = binary_eval(sign * np.array([it[attack] for it in mem]),
+                                             sign * np.array([non[i][attack] for i in match]))
         out.setdefault("mean_tokens", {})[group] = float(np.mean([len(it["tokens"]) for it in mem]))
     out["mean_loss"] = {g: float(np.mean([it["loss"] for it in items if it["group"] == g]))
                         for g in ("seen0", "seen1", "seen2", "seen3+", "train_any", "nonmember")
