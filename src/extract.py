@@ -68,7 +68,7 @@ SPACE = 10 ** N_DIGITS
 
 # ---------------------------------------------------------------- scoring ----
 @torch.no_grad()
-def seq_logprobs(model, seqs, score_from, device, batch_size=256, bf16=True):
+def seq_logprobs(model, seqs, score_from, device, batch_size=256, bf16=True, pad_to=64):
     """Sum of log p(token) over tokens seqs[i][score_from[i]:], given everything before.
 
     Returns (logprob_sums, token_counts). Sequences are length-sorted and
@@ -82,6 +82,10 @@ def seq_logprobs(model, seqs, score_from, device, batch_size=256, bf16=True):
     for i in range(0, len(seqs), batch_size):
         idx = order[i:i + batch_size]
         T = int(lens[idx].max()) - 1
+        # Round T up to a multiple of `pad_to` so only a few tensor shapes ever reach
+        # the GPU: on ROCm/Windows, hundreds of distinct shapes crash the driver after
+        # ~20 batches. Extra padding is masked (-1) and causal, so results are unchanged.
+        T = min(-(-T // pad_to) * pad_to, max(T, model.cfg.block_size))
         x = np.zeros((len(idx), T), dtype=np.int64)
         y = np.full((len(idx), T), -1, dtype=np.int64)
         for r, j in enumerate(idx):
