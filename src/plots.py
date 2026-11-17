@@ -3,7 +3,8 @@
 Figures (experiments/results/figures/):
   training_curves.png     validation loss vs. tokens trained, every run
   canary_exposure.png     mean canary exposure vs. number of copies inserted
-  canary_extraction.png   fraction of canaries extracted by greedy decoding
+  canary_extraction.png   canaries extracted by beam search (top guess / top 100 guesses)
+  privacy_utility.png     DP-SGD sweep: utility and canary exposure vs. epsilon
   exposure_vs_seen.png    exposure vs. times the model actually saw each canary
   mia_roc.png             membership-inference ROC curves (loss attack)
 Table: experiments/results/results_table.md (privacy vs. utility)
@@ -35,7 +36,10 @@ RUNS = {
     "baseline_M": {"label": "Baseline (no canaries)", "color": "#8a8984", "ls": ":"},
     "canary_M": {"label": "No defense", "color": "#2a78d6", "ls": "-"},
     "canary_dedup_M": {"label": "Dedup", "color": "#eb6834", "ls": "-"},
-    "dp_eps8_M": {"label": "DP-SGD (ε=8)", "color": "#1baf7a", "ls": "-"},
+    # DP-SGD sweep: one hue (it's one method), darker = stronger privacy, plus line style.
+    "dp_eps8_M": {"label": "DP-SGD (ε=8)", "color": "#0d6e4a", "ls": "-", "eps": 8},
+    "dp_eps32_M": {"label": "DP-SGD (ε=32)", "color": "#1baf7a", "ls": "--", "eps": 32},
+    "dp_eps64_M": {"label": "DP-SGD (ε=64)", "color": "#5cc79a", "ls": "-.", "eps": 64},
 }
 TEXT, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
@@ -119,21 +123,26 @@ def canary_plots(data):
     ax.legend(loc="center left")
     save(fig, "canary_exposure.png")
 
-    # Extraction rate
-    fig, ax = plt.subplots(figsize=(6.4, 3.6))
+    # Extraction rate (beam search over digit strings; attacker knows the format)
     runs = [r for r in have if r != "baseline_M"] or list(have)
     w = 0.8 / len(runs)
-    for i, run in enumerate(runs):
-        reps = sorted({int(r["reps"]) for r in have[run]["canaries"]})
-        rates = [np.mean([str(r["extracted"]) == "True" for r in have[run]["canaries"] if int(r["reps"]) == k]) * 100
-                 for k in reps]
-        xs = np.arange(len(reps)) + (i - (len(runs) - 1) / 2) * w
-        ax.bar(xs, rates, width=w * 0.92, color=RUNS[run]["color"], label=RUNS[run]["label"])
-    ax.set_xticks(np.arange(len(reps)), [str(r) if r else "0\n(held out)" for r in reps])
-    ax.set_xlabel("Copies of the canary in the training data")
-    ax.set_ylabel("Secrets extracted (%)")
-    ax.set_ylim(0, 105)
-    ax.legend(loc="upper left")
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.6), sharey=True)
+    panels = [("extracted_beam", "Top guess is the secret"), ("in_top100", "Secret in top 100 guesses")]
+    for ax, (key, title) in zip(axes, panels):
+        for i, run in enumerate(runs):
+            rows = have[run]["canaries"]
+            if key not in rows[0]:
+                continue
+            reps = sorted({int(r["reps"]) for r in rows})
+            rates = [np.mean([r[key] == "True" for r in rows if int(r["reps"]) == k]) * 100 for k in reps]
+            xs = np.arange(len(reps)) + (i - (len(runs) - 1) / 2) * w
+            ax.bar(xs, rates, width=w * 0.92, color=RUNS[run]["color"], label=RUNS[run]["label"])
+        ax.set_xticks(np.arange(len(reps)), [str(r) if r else "0\n(held out)" for r in reps])
+        ax.set_xlabel("Copies of the canary in the training data")
+        ax.set_title(title, fontsize=10, color=TEXT)
+        ax.set_ylim(0, 105)
+    axes[0].set_ylabel("Canaries extracted (%)")
+    axes[0].legend(loc="upper left", fontsize=8)
     save(fig, "canary_extraction.png")
 
     # Exposure vs times actually seen
@@ -159,9 +168,13 @@ def mia_roc(data):
         return
     groups = [("seen0", "never fully seen"), ("seen1", "seen once"), ("seen2", "seen twice"),
               ("seen3+", "seen 3+ times")]
-    fig, axes = plt.subplots(1, len(have), figsize=(3.2 * len(have), 3.4), squeeze=False)
+    ncol = min(3, len(have))
+    nrow = -(-len(have) // ncol)
+    fig, axes = plt.subplots(nrow, ncol, figsize=(3.4 * ncol, 3.5 * nrow), squeeze=False)
+    for ax in axes.flat[len(have):]:
+        ax.set_visible(False)
     shades = ["#b7d3f2", "#79ade8", "#2a78d6", "#0d3f7a"]   # one hue, light -> dark = more exposure
-    for ax, (run, d) in zip(axes[0], have.items()):
+    for ax, (run, d) in zip(axes.flat, have.items()):
         non_rows = [r for r in d["mia"] if r["group"] == "nonmember"]
         for (g, label), c in zip(groups, shades):
             rows = [r for r in d["mia"] if r["group"] == g]
@@ -181,28 +194,71 @@ def mia_roc(data):
         ax.set_xlabel("False positive rate")
         ax.set_aspect("equal")
         ax.legend(fontsize=7, loc="lower right")
-    axes[0][0].set_ylabel("True positive rate")
+    for row in axes:
+        row[0].set_ylabel("True positive rate")
     save(fig, "mia_roc.png")
 
 
+def privacy_utility(data):
+    """DP-SGD sweep: two panels sharing an epsilon axis (no dual y-axis)."""
+    pts = [(RUNS[r]["eps"], d) for r, d in data.items() if "eps" in RUNS[r] and "summary" in d]
+    if len(pts) < 2 or "summary" not in data.get("canary_M", {}):
+        return
+    pts.sort(key=lambda p: p[0])
+    labels = [f"ε={e}" for e, _ in pts] + ["no DP\n(ε=∞)"]
+    ds = [d for _, d in pts] + [data["canary_M"]]
+    xs = np.arange(len(ds))
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 3.6))
+    green, blue = "#1baf7a", RUNS["canary_M"]["color"]
+    cols = [green] * len(pts) + [blue]
+
+    vl = [d["summary"]["val_loss"] for d in ds]
+    a1.plot(xs[:-1], vl[:-1], color=green, marker="o", ms=6)
+    a1.scatter(xs, vl, color=cols, s=40, zorder=3, edgecolor="white", lw=1)
+    for x, v in zip(xs, vl):
+        a1.annotate(f"{v:.2f}", (x, v), xytext=(0, 7), textcoords="offset points", ha="center",
+                    fontsize=8, color=MUTED)
+    if "summary" in data.get("canary_dedup_M", {}):
+        dv = data["canary_dedup_M"]["summary"]["val_loss"]
+        a1.axhline(dv, color=RUNS["canary_dedup_M"]["color"], lw=1, ls="--")
+        a1.text(0, dv, f"dedup {dv:.2f}", fontsize=8, color=MUTED, va="bottom")
+    a1.set_xticks(xs, labels)
+    a1.set_ylabel("Validation loss (lower is better)")
+    a1.set_title("Utility", fontsize=10, color=TEXT)
+    a1.set_ylim(0, max(vl) * 1.15)
+
+    for reps, mk in (("64", "o"), ("32", "s"), ("16", "^")):
+        ex = [d["summary"]["canaries"][reps]["exposure_mean"] for d in ds]
+        a2.plot(xs, ex, color=MUTED, lw=1, marker=mk, ms=6, mfc="white", label=f"{reps} copies")
+    a2.axhline(1 / np.log(2), color=MUTED, lw=0.8, ls="--")
+    a2.text(0, 1 / np.log(2) + 0.3, "random guessing", fontsize=8, color=MUTED, va="bottom")
+    a2.set_xticks(xs, labels)
+    a2.set_ylabel("Mean canary exposure (bits)")
+    a2.set_title("Memorization", fontsize=10, color=TEXT)
+    a2.set_ylim(0, 21)
+    a2.legend(loc="upper left", fontsize=8)
+    save(fig, "privacy_utility.png")
+
+
 def table(data):
-    lines = ["| Run | ε | Val loss | Val ppl | Extracted (all inserted) | Extracted (64 copies) | "
-             "Mean exposure, 1 copy | Mean exposure, 64 copies | MIA AUC (train vs. val) | MIA AUC (seen 3+) |",
-             "|---|---|---|---|---|---|---|---|---|---|"]
+    lines = ["| Run | ε | Val loss | Val ppl | Extracted, greedy (64 copies) | Extracted, beam top-1 (64 copies) | "
+             "Secret in beam top-100 (64 copies) | Mean exposure, 1 copy | Mean exposure, 16 copies | "
+             "Mean exposure, 64 copies | MIA AUC (train vs. val) | MIA AUC (seen 3+) |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for run, d in data.items():
         if "summary" not in d:
             continue
         s = d["summary"]
         c = s["canaries"]
-        ins = [r for r in d["canaries"] if int(r["reps"]) > 0]
-        ext_all = np.mean([r["extracted"] == "True" for r in ins]) * 100
         eps = d.get("config", {}).get("dp", {}).get("epsilon")
         mia = s.get("mia", {}).get("loss", {})
         f = lambda g: f"{mia[g]['auc']:.3f}" if g in mia else "n/a"
         lines.append(f"| {RUNS[run]['label']} | {eps:.1f} | " if eps else f"| {RUNS[run]['label']} | ∞ | ")
-        lines[-1] += (f"{s['val_loss']:.3f} | {s['val_perplexity']:.2f} | {ext_all:.0f}% | "
-                      f"{c['64']['extracted_frac'] * 100:.0f}% | {c['1']['exposure_mean']:.1f} | "
-                      f"{c['64']['exposure_mean']:.1f} | {f('train_any')} | {f('seen3+')} |")
+        lines[-1] += (f"{s['val_loss']:.3f} | {s['val_perplexity']:.2f} | {c['64']['extracted_frac'] * 100:.0f}% | "
+                      f"{c['64'].get('extracted_beam_frac', float('nan')) * 100:.0f}% | "
+                      f"{c['64'].get('in_top_beam_frac', float('nan')) * 100:.0f}% | {c['1']['exposure_mean']:.1f} | "
+                      f"{c['16']['exposure_mean']:.1f} | {c['64']['exposure_mean']:.1f} | "
+                      f"{f('train_any')} | {f('seen3+')} |")
     out = RES / "results_table.md"
     out.write_text("\n".join(lines) + "\n\n(Baseline has no canaries in its data: its canary numbers are "
                    "the 'never trained on it' reference. Exposure: 0 to 19.9 bits; random guessing averages 1.44.)\n",
@@ -216,6 +272,7 @@ def main():
     training_curves(data)
     canary_plots(data)
     mia_roc(data)
+    privacy_utility(data)
     table(data)
 
 

@@ -52,6 +52,25 @@ def test_exact_rank_matches_brute_force(model):
     assert extract.exact_rank(model, ctx, all_s[order[900]], digit_toks, "cpu", budget=50)[0] is None
 
 
+def test_beam_digits_matches_brute_force(model):
+    digit_toks = {str(d): ([40 + d] if d % 3 == 0 else [32, 40 + d]) for d in range(10)}
+    ctx = [5, 6, 7]
+    all_s = ["".join(p) for p in itertools.product("0123456789", repeat=3)]
+    seqs = [ctx + [t for d in s for t in digit_toks[d]] for s in all_s]
+    lps, _ = extract.seq_logprobs(model, seqs, [len(ctx)] * len(seqs), "cpu", bf16=False)
+    order = np.argsort(-lps, kind="stable")
+    # A beam of 100 keeps every 2-digit prefix, so the search is exhaustive.
+    full = extract.beam_digits(model, ctx, digit_toks, "cpu", n_digits=3, beam=100)
+    assert [s for s, _ in full] == [all_s[i] for i in order[:100]]
+    assert np.allclose([lp for _, lp in full], lps[order[:100]], atol=1e-4)
+    # Narrow beam: still returns valid, sorted, correctly scored candidates.
+    narrow = extract.beam_digits(model, ctx, digit_toks, "cpu", n_digits=3, beam=5)
+    assert len(narrow) == 5 and all(len(s) == 3 for s, _ in narrow)
+    assert [lp for _, lp in narrow] == sorted([lp for _, lp in narrow], reverse=True)
+    for s, lp in narrow:
+        assert abs(lp - lps[all_s.index(s)]) < 1e-4
+
+
 def test_exposure():
     assert extract.exposure(1) == pytest.approx(np.log2(1e6))
     assert extract.exposure(1e6) == pytest.approx(0)

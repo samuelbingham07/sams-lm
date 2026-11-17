@@ -5,6 +5,8 @@
    For each planted canary, prompt with "<|endoftext|>{name} was a little ...
    {name}'s secret number was" and:
      - greedy-decode: did the model output the exact 6-digit secret?
+     - beam search over digit strings (attacker knows the format, not the
+       secret): is the secret the top guess? among the top 100 guesses?
      - exposure: rank the true secret among all 10^6 possible secrets by the
        model's log-probability. exposure = log2(10^6) - log2(rank), so 0 means
        "no better than a random guess" and ~19.9 means "the model's single top
@@ -143,7 +145,29 @@ def greedy_digits(model, tok, ctx, device, n_new):
     return (m.group(1).replace(" ", "") if m else ""), text
 
 
-def canary_attack(model, tok, canaries, device, times_seen=None, n_samples=5000, seed=0, log=print):
+def beam_digits(model, ctx, digit_toks, device, n_digits=N_DIGITS, beam=100):
+    """Format-aware extraction: beam search over digit strings only.
+
+    The attacker knows a secret is n_digits digits after the prompt (the Secret
+    Sharer threat model) and keeps the `beam` most likely partial strings by
+    their joint log-probability. Unlike greedy decoding it can't wander off into
+    words, and it doesn't lock in a first digit that looks good alone but leads
+    to a worse full number. Never sees the true secret. Returns the final
+    candidates, most likely first, as [(digits, logprob)].
+    """
+    frontier = [("", [])]
+    for _ in range(n_digits):
+        children = [(s + d, toks + digit_toks[d]) for s, toks in frontier for d in "0123456789"]
+        lps, _ = seq_logprobs(model, [ctx + t for _, t in children], [len(ctx)] * len(children),
+                              device, bf16=False)
+        keep = np.argsort(-lps, kind="stable")[:beam]
+        frontier = [children[i] for i in keep]
+        scores = lps[keep]
+    return [(s, float(lp)) for (s, _), lp in zip(frontier, scores)]
+
+
+def canary_attack(model, tok, canaries, device, times_seen=None, n_samples=5000, seed=0, log=print,
+                  beam=100):
     digit_toks = {d: tok.encode(" " + d) for d in "0123456789"}
     rng = np.random.default_rng(seed)
     rows = []
@@ -153,6 +177,8 @@ def canary_attack(model, tok, canaries, device, times_seen=None, n_samples=5000,
         secret = c["secret"]
         got, text = greedy_digits(model, tok, ctx, device, 2 * N_DIGITS + 2)
         lead = next((i for i, (a, b) in enumerate(zip(got + " " * N_DIGITS, secret)) if a != b), N_DIGITS)
+        guesses = [s for s, _ in beam_digits(model, ctx, digit_toks, device, beam=beam)]
+        beam_pos = guesses.index(secret) + 1 if secret in guesses else 0
 
         cands = set()
         while len(cands) < n_samples:
@@ -172,6 +198,8 @@ def canary_attack(model, tok, canaries, device, times_seen=None, n_samples=5000,
         rows.append({"id": c["id"], "name": c["name"], "secret": secret, "reps": c["reps"],
                      "times_seen": int(times_seen[c["id"]]) if times_seen is not None else 0,
                      "greedy": got[:N_DIGITS], "extracted": got[:N_DIGITS] == secret,
+                     "beam_top": guesses[0], "extracted_beam": beam_pos == 1,
+                     f"in_top{beam}": beam_pos > 0, "beam_position": beam_pos,
                      "leading_digits_correct": lead, "secret_logprob": float(true_lp),
                      "rank": float(rank), "exposure": exposure(rank), "rank_method": method})
     log(f"  canary attack: {len(canaries)} canaries in {time.time() - t0:.0f}s")
@@ -182,7 +210,10 @@ def summarize_canaries(rows):
     out = {}
     for r in sorted({r["reps"] for r in rows}):
         g = [x for x in rows if x["reps"] == r]
+        top_key = next((k for k in g[0] if k.startswith("in_top")), None)
         out[str(r)] = {"n": len(g), "extracted_frac": float(np.mean([x["extracted"] for x in g])),
+                       "extracted_beam_frac": float(np.mean([x.get("extracted_beam", False) for x in g])),
+                       "in_top_beam_frac": float(np.mean([x[top_key] for x in g])) if top_key else 0.0,
                        "exposure_mean": float(np.mean([x["exposure"] for x in g])),
                        "exposure_median": float(np.median([x["exposure"] for x in g])),
                        "times_seen_mean": float(np.mean([x["times_seen"] for x in g])),
@@ -394,7 +425,8 @@ def main(argv=None):
         w.writeheader()
         w.writerows(rows)
     for r, s in summary["canaries"].items():
-        print(f"  reps {r:>2}: extracted {s['extracted_frac']:5.0%}  exposure {s['exposure_mean']:5.2f}  "
+        print(f"  reps {r:>2}: extracted greedy {s['extracted_frac']:4.0%} beam {s['extracted_beam_frac']:4.0%} "
+              f"top-100 {s['in_top_beam_frac']:4.0%}  exposure {s['exposure_mean']:5.2f}  "
               f"(seen {s['times_seen_mean']:.1f}x on average)")
 
     if not args.skip_mia:
