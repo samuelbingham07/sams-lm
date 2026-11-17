@@ -36,6 +36,19 @@ def test_accountant_sanity():
     assert accountant.epsilon(5e-4, sigma - 0.01, 1000, 1e-6)[0] > 8.0
 
 
+def test_noise_for_large_epsilon_is_not_clamped():
+    # Regression: the search used to stop at sigma = 0.3 and silently return a run
+    # with a smaller epsilon than asked for (asked 64, got 29.4).
+    q, steps, delta = 5.4e-4, 800, 1e-7
+    for target in (32.0, 64.0):
+        sigma = accountant.noise_for_epsilon(target, q, steps, delta)
+        eps = accountant.epsilon(q, sigma, steps, delta)[0]
+        assert target * 0.97 < eps <= target
+    with pytest.raises(ValueError):
+        accountant.noise_for_epsilon(1e6, q, steps, delta)       # needs sigma below the range
+    assert accountant.epsilon(q, 0.0, steps, delta)[0] == float("inf")
+
+
 def tiny_model():
     torch.manual_seed(0)
     return GPT(GPTConfig(vocab_size=64, block_size=16, n_layer=2, n_head=2, n_embd=32))

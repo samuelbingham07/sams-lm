@@ -43,6 +43,8 @@ def rdp_subsampled_gaussian(q, sigma, alpha):
 def epsilon(q, sigma, steps, delta, orders=ORDERS):
     """(epsilon, best order) after `steps` DP-SGD steps."""
     best = (math.inf, None)
+    if sigma == 0:            # no noise: no privacy guarantee at all
+        return best
     for a in orders:
         rdp = steps * rdp_subsampled_gaussian(q, sigma, a)
         eps = rdp + math.log((a - 1) / a) - (math.log(delta) + math.log(a)) / (a - 1)
@@ -51,9 +53,14 @@ def epsilon(q, sigma, steps, delta, orders=ORDERS):
     return best
 
 
-def noise_for_epsilon(target_eps, q, steps, delta, lo=0.3, hi=50.0, tol=1e-3):
+def noise_for_epsilon(target_eps, q, steps, delta, lo=0.05, hi=50.0, tol=1e-4):
     """Smallest noise multiplier sigma that keeps epsilon <= target (binary search)."""
     assert epsilon(q, hi, steps, delta)[0] <= target_eps, "target epsilon unreachable"
+    # If even the smallest sigma searched is private enough, the answer is below the
+    # range: fail loudly rather than return `lo` (which would give a smaller epsilon
+    # than asked for, silently).
+    if epsilon(q, lo, steps, delta)[0] <= target_eps:
+        raise ValueError(f"target epsilon {target_eps} needs sigma < {lo}; lower `lo`")
     while hi - lo > tol:
         mid = (lo + hi) / 2
         if epsilon(q, mid, steps, delta)[0] <= target_eps:

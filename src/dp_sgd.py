@@ -129,7 +129,9 @@ def main(argv=None):
     N = (len(data) - 1) // bs                    # example i = tokens [i*bs, i*bs + bs + 1)
     q = args.batch_size / N
     delta = args.delta or 1.0 / (10 * N)
-    sigma = args.noise_multiplier or noise_for_epsilon(args.epsilon, q, args.max_steps, delta)
+    # --noise_multiplier 0 is the "clipping only" control (same recipe, epsilon = infinity).
+    sigma = args.noise_multiplier if args.noise_multiplier is not None \
+        else noise_for_epsilon(args.epsilon, q, args.max_steps, delta)
     eps_final, order = compute_epsilon(q, sigma, args.max_steps, delta)
     val = TokenLoader(args.val_bin, bs, 32, device, args.seed)
 

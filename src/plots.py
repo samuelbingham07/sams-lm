@@ -38,8 +38,10 @@ RUNS = {
     "canary_dedup_M": {"label": "Dedup", "color": "#eb6834", "ls": "-"},
     # DP-SGD sweep: one hue (it's one method), darker = stronger privacy, plus line style.
     "dp_eps8_M": {"label": "DP-SGD (ε=8)", "color": "#0d6e4a", "ls": "-", "eps": 8},
-    "dp_eps32_M": {"label": "DP-SGD (ε=32)", "color": "#1baf7a", "ls": "--", "eps": 32},
-    "dp_eps64_M": {"label": "DP-SGD (ε=64)", "color": "#5cc79a", "ls": "-.", "eps": 64},
+    "dp_eps29_M": {"label": "DP-SGD (ε=29)", "color": "#139462", "ls": "--", "eps": 29},
+    "dp_eps64_M": {"label": "DP-SGD (ε=64)", "color": "#1baf7a", "ls": "-.", "eps": 64},
+    # Control: the DP-SGD recipe (clipping, Poisson sampling, 800 steps) with no noise.
+    "dp_sigma0_M": {"label": "DP recipe, no noise (ε=∞)", "color": "#5cc79a", "ls": ":", "eps": float("inf")},
 }
 TEXT, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
@@ -205,7 +207,7 @@ def privacy_utility(data):
     if len(pts) < 2 or "summary" not in data.get("canary_M", {}):
         return
     pts.sort(key=lambda p: p[0])
-    labels = [f"ε={e}" for e, _ in pts] + ["no DP\n(ε=∞)"]
+    labels = [f"ε={e}" if e != float("inf") else "DP recipe,\nno noise" for e, _ in pts] + ["standard\ntraining"]
     ds = [d for _, d in pts] + [data["canary_M"]]
     xs = np.arange(len(ds))
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 3.6))
@@ -253,7 +255,7 @@ def table(data):
         eps = d.get("config", {}).get("dp", {}).get("epsilon")
         mia = s.get("mia", {}).get("loss", {})
         f = lambda g: f"{mia[g]['auc']:.3f}" if g in mia else "n/a"
-        lines.append(f"| {RUNS[run]['label']} | {eps:.1f} | " if eps else f"| {RUNS[run]['label']} | ∞ | ")
+        lines.append(f"| {RUNS[run]['label']} | {eps:.1f} | " if eps and eps != float("inf") else f"| {RUNS[run]['label']} | ∞ | ")
         lines[-1] += (f"{s['val_loss']:.3f} | {s['val_perplexity']:.2f} | {c['64']['extracted_frac'] * 100:.0f}% | "
                       f"{c['64'].get('extracted_beam_frac', float('nan')) * 100:.0f}% | "
                       f"{c['64'].get('in_top_beam_frac', float('nan')) * 100:.0f}% | {c['1']['exposure_mean']:.1f} | "
