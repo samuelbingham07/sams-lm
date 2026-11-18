@@ -4,9 +4,7 @@ I built a GPT-style language model from scratch, trained it on 484M tokens of ch
 
 Everything is implemented here: the tokenizer, the transformer, the training loop, DP-SGD and its privacy accountant, and the attacks, with 73 tests. PyTorch provides tensors and autograd.
 
-> **Live demo:** _coming soon on Hugging Face Spaces_. Write a story, try to steal a secret, and check whether a story was in the training data.
-
-<!-- Demo GIF goes here once the Space is up. -->
+> **[Try the live demo](https://huggingface.co/spaces/samuelbingham07/sams-lm-demo)**: steal a planted secret, test whether a story was in the training data, and write stories with each model. It runs entirely in your browser. (An extension beyond the course project; see [below](#extension-in-browser-demo).)
 
 ---
 
@@ -95,6 +93,20 @@ Several results looked plausible and were wrong until I tested them:
 - **A NumPy footgun.** `rng.choice` over a list of `bytes` hash keys returns `np.bytes_`, which strips trailing NUL bytes, so some keys stopped matching. The code now samples indices, with a regression test.
 
 ---
+
+## Extension: in-browser demo
+
+Beyond the scope of the course project, I turned the results into an
+[interactive demo](https://huggingface.co/spaces/samuelbingham07/sams-lm-demo) that needs no server:
+
+- The models are exported to **ONNX** with a key/value cache ([demo/export_onnx.py](demo/export_onnx.py)). Weights are stored at half precision (57 MB per model) and all math is done at full precision. They are hosted at [huggingface.co/samuelbingham07/sams-lm](https://huggingface.co/samuelbingham07/sams-lm).
+- The page is static ([demo/space/](demo/space/)). It runs the models with ONNX Runtime Web in a Web Worker, with a JavaScript port of the tokenizer and the beam-search attack. With cross-origin isolation it uses several threads, and an attack takes about 2 seconds.
+- **Checked against the PyTorch originals** ([demo/test_demo.mjs](demo/test_demo.mjs)):
+  - identical token ids on 412 texts and identical greedy stories;
+  - story losses within 1e-5;
+  - identical beam-search results.
+  - Storing weights at half precision preserves the experiment's attack outcome in 478 of 480 canary runs.
+- [demo/e2e.mjs](demo/e2e.mjs) drives the page in a headless browser. Preview it locally with `python demo/serve.py`.
 
 ## Reproduce
 

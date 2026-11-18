@@ -263,6 +263,12 @@ Training throughput on the RX 7800 XT, bf16 autocast, batch 32 x 512 tokens (`ex
 5. ~~Extras: shadow-model MIA, memorization over training, large-batch DP-SGD~~ done 2026-11-17 (see 5c). Bug found: sampling bytes hash keys with rng.choice strips trailing NULs (KeyError); now samples indices, with a regression test.
 6. Report, slides, reflection.txt.
 
+**Portfolio extension, NOT part of the course project (decided 2026-11-17):** the README, the MIT license and the in-browser demo
+(`demo/`, Hugging Face model repo `samuelbingham07/sams-lm`, Space `samuelbingham07/sams-lm-demo`). Sam presents the demo
+as an extension beyond the final project. Keep it out of the report's scope and out of the slides, and leave `demo/`
+out of the code submission (or label it clearly as an optional extension). Whether to count its hours in reflection.txt
+is Sam's call.
+
 ---
 
 ## 7. Draft proposal paragraph (for Gradescope, Nov 18)

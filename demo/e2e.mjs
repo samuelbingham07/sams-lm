@@ -5,7 +5,7 @@ import { mkdirSync } from "node:fs";
 
 const out = process.argv[2] ?? "e2e_out";
 mkdirSync(out, { recursive: true });
-const url = "http://localhost:8000/?models=/models/";
+const url = process.env.E2E_URL ?? "http://localhost:8000/?models=/models/";   // or the live Space
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
 const errors = [];

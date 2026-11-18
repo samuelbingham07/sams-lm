@@ -11,7 +11,7 @@
 <body>
   <header class="site">
     <div class="wrap">
-      <p class="eyebrow">CS 181E final project · the models run on your device</p>
+      <p class="eyebrow">An interactive extension of my CS 181E final project · the models run on your device</p>
       <h1>Sam's LM</h1>
       <p class="lede">I built a small GPT from scratch, hid fake secrets in its training data, and then attacked it.
         Try the attacks yourself on the undefended model and on two defenses.</p>
@@ -130,7 +130,8 @@
         <li><strong>DP-SGD stops both attacks</strong>, at a large cost in quality: try writing a story with it.</li>
       </ul>
       <h2>How this page works</h2>
-      <p>The models were exported to ONNX and run in your browser with ONNX Runtime Web (WebAssembly). Their weights are
+      <p>The course project was the models, attacks, defenses and analysis. This page is an extension beyond it.
+        The models were exported to ONNX and run in your browser with ONNX Runtime Web (WebAssembly). Their weights are
         stored at half precision to halve the download, and all arithmetic is full precision. The browser code is checked
         against the PyTorch originals: identical tokens, identical greedy stories, story losses within 0.002, and the
         same beam-search results. "Saved results" were computed with the same weights in PyTorch.</p>

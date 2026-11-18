@@ -17,7 +17,8 @@ pipeline_tag: text-generation
 Four small GPT models (27.5M parameters each) from
 [sams-lm](https://github.com/samuelbingham07/sams-lm), a project that builds a language model from scratch,
 plants fake secrets ("canaries") in its training data, and measures what leaks and which defenses stop it.
-These files power the [in-browser demo](https://huggingface.co/spaces/samuelbingham07/sams-lm-demo).
+These files power the [in-browser demo](https://huggingface.co/spaces/samuelbingham07/sams-lm-demo), an
+extension built beyond the scope of the original course project.
 
 | File | Training run | What it is | Validation loss |
 |---|---|---|---|
