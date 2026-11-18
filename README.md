@@ -6,6 +6,12 @@ Everything is implemented here: the tokenizer, the transformer, the training loo
 
 > **[Try the live demo](https://huggingface.co/spaces/samuelbingham07/sams-lm-demo)**: steal a planted secret, test whether a story was in the training data, and write stories with each model. It runs entirely in your browser. (An extension beyond the course project; see [below](#extension-in-browser-demo).)
 
+<p align="center">
+  <a href="https://huggingface.co/spaces/samuelbingham07/sams-lm-demo">
+    <img src="demo/demo.gif" width="800" alt="The demo: the attack recovers a planted secret from the undefended model but not from the defended ones; the membership test flags a training story; the model writes a story">
+  </a>
+</p>
+
 ---
 
 ## Headline results

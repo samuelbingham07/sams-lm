@@ -172,7 +172,7 @@ function secretCard(name) {
       const seen = saved.times_seen ? `seen whole ${saved.times_seen}× in training`
         : canary.reps ? "in the training file, but never seen whole" : "never in training (control)";
       body.innerHTML = `<ol class="guesses" aria-label="Top guesses">${rows.join("")}</ol>
-        <p class="verdict ${cls}"><span aria-hidden="true">${icon}</span>${text}</p>
+        <p class="verdict ${cls}"><span><span aria-hidden="true">${icon}</span> ${text}</span></p>
         <p class="meta">Exposure ${saved.exposure.toFixed(1)} of 19.9 bits · ${seen}</p>`;
     },
   };
@@ -337,8 +337,8 @@ function renderMia(targetLoss, refLoss, exampleIdx, truncated) {
       <div class="stat"><div class="k">Reference model loss</div><div class="v">${refLoss.toFixed(3)}</div></div>
       <div class="stat"><div class="k">Membership score</div><div class="v">${score >= 0 ? "+" : ""}${score.toFixed(3)}</div></div>
     </div>
-    <p class="verdict ${flagged ? "leak" : "safe"}"><span aria-hidden="true">${flagged ? "!" : "✓"}</span>${flagged
-      ? "Flagged as training data" : "Not flagged"}<span class="sub">&nbsp;· higher than ${(beat * 100).toFixed(0)}% of stories the model never saw</span></p>
+    <p class="verdict ${flagged ? "leak" : "safe"}"><span><span aria-hidden="true">${flagged ? "!" : "✓"}</span> ${flagged
+      ? "Flagged as training data" : "Not flagged"}</span><span class="sub">&nbsp;· higher than ${(beat * 100).toFixed(0)}% of stories the model never saw</span></p>
     <div id="mia-chart"></div>
     <p class="meta">On the ${esc(LABEL[miaTarget])} model, this test flags ${(d.tpr_at_threshold * 100).toFixed(0)}% of stories it saw 3+ times,
       while wrongly flagging 1% of stories it never saw (AUC ${demo.mia_auc[miaTarget].reference_seen3.toFixed(2)}; the plain loss test gets
