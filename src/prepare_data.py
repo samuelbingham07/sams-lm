@@ -1,6 +1,6 @@
 """Clean TinyStories and write one text file per split.
 
-Fixes found while inspecting the raw data (see PROJECT_HANDOFF.md, "Data"):
+Fixes found while inspecting the raw data (counts in data/clean/stats.json):
   1. ~130K stories contain mojibake: UTF-8 punctuation decoded as cp1252,
      e.g. "donâ€™t" instead of "don't". Some closing quotes lost
      their last byte entirely ("â€" + space), which ftfy cannot repair,

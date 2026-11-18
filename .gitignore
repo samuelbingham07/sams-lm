@@ -50,3 +50,6 @@ demo/hf_export/
 demo/node_modules/
 demo/e2e_out/
 !demo/space/data/
+
+# Private working notes (kept locally, not published)
+PROJECT_HANDOFF.md

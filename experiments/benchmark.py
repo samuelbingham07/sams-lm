@@ -1,6 +1,6 @@
 """Measure training throughput of candidate model sizes on this GPU.
 
-Used to choose the model size (see PROJECT_HANDOFF.md). Each config runs a few
+Used to choose the model size (results: experiments/results/benchmark.json). Each config runs a few
 warm-up steps, then times forward + backward + AdamW step in bf16 autocast.
 
 Usage:  python experiments/benchmark.py
