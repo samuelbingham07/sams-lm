@@ -1,0 +1,14 @@
+{
+  "models": {
+    "no_defense": "canary_M",
+    "dedup": "canary_dedup_M",
+    "dp_eps8": "dp_bigbatch_eps8_M",
+    "shadow": "shadow_M"
+  },
+  "vocab_size": 4096,
+  "block_size": 512,
+  "n_layer": 8,
+  "n_head": 8,
+  "head_dim": 64,
+  "eot_id": 4095
+}

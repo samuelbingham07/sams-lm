@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sam's LM</title>
+  <meta name="description" content="A GPT built from scratch, then attacked for its training data. The attacks run in your browser.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M10 15v-3a6 6 0 0 1 12 0v3' fill='none' stroke='white' stroke-width='2.6'/%3E%3Crect x='8' y='15' width='16' height='11' rx='2.5' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site">
+    <div class="wrap">
+      <p class="eyebrow">CS 181E final project · the models run on your device</p>
+      <h1>Sam's LM</h1>
+      <p class="lede">I built a small GPT from scratch, hid fake secrets in its training data, and then attacked it.
+        Try the attacks yourself on the undefended model and on two defenses.</p>
+      <nav class="links" aria-label="Project links">
+        <a href="https://github.com/samuelbingham07/sams-lm">Code and write-up on GitHub</a>
+        <a href="https://huggingface.co/samuelbingham07/sams-lm">Model files</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="tabs" role="tablist" aria-label="Demos">
+      <button role="tab" id="t-secret" aria-controls="tab-secret" aria-selected="true">Steal a secret</button>
+      <button role="tab" id="t-member" aria-controls="tab-member" aria-selected="false" tabindex="-1">Was it trained on this?</button>
+      <button role="tab" id="t-story" aria-controls="tab-story" aria-selected="false" tabindex="-1">Write a story</button>
+      <button role="tab" id="t-about" aria-controls="tab-about" aria-selected="false" tabindex="-1">How it works</button>
+    </div>
+    <p class="engine" id="engine">Loading…</p>
+
+    <!-- 1. Secret extraction -->
+    <section class="panel" id="tab-secret" role="tabpanel" aria-labelledby="t-secret">
+      <p class="intro">160 made-up secrets were hidden among 2 million training stories, each repeated between 0 and 64 times.
+        The attacker knows the sentence pattern and the name, but not the number, and asks each model for its
+        <strong>100 most likely 6-digit completions</strong> (a beam search over digits).</p>
+      <div class="controls">
+        <div class="field">
+          <span class="label" id="reps-label">Copies in the training data</span>
+          <div class="seg" id="reps-seg" role="radiogroup" aria-labelledby="reps-label"></div>
+        </div>
+        <div class="field grow">
+          <label class="label" for="canary-select">Secret</label>
+          <select id="canary-select"></select>
+        </div>
+      </div>
+      <p class="hint summary" id="reps-summary"></p>
+      <blockquote class="prompt" id="canary-prompt"></blockquote>
+      <div class="actions">
+        <button class="primary" id="secret-live">Run the attack live</button>
+        <button id="secret-saved">Show saved results</button>
+        <span class="hint" id="secret-hint">Live mode downloads each model once (57 MB) and runs on your device.</span>
+      </div>
+      <div class="reveal" id="secret-reveal" hidden></div>
+      <div class="cards" id="secret-results"></div>
+    </section>
+
+    <!-- 2. Membership inference -->
+    <section class="panel" id="tab-member" role="tabpanel" aria-labelledby="t-member" hidden>
+      <p class="intro">Can an attacker tell whether a story was in the training data? A plain "low loss means member" test barely works here.
+        The strong version compares the model under attack with a <strong>reference model</strong> trained on different stories:
+        if the target finds a story much easier than the reference does, it probably trained on it.</p>
+      <div class="controls">
+        <div class="field">
+          <span class="label" id="mia-model-label">Model under attack</span>
+          <div class="seg" id="mia-model-seg" role="radiogroup" aria-labelledby="mia-model-label"></div>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Pick a story (half of them are training stories), or write your own</span>
+        <div class="picks" id="mia-picks"></div>
+      </div>
+      <textarea id="mia-text" rows="6" aria-label="Story to test" placeholder="Pick a story above, or paste or write a short story here."></textarea>
+      <div class="actions">
+        <button class="primary" id="mia-live">Score it live</button>
+        <button id="mia-saved">Show saved score</button>
+        <span class="hint" id="mia-hint">Live mode downloads the model under attack and the reference model (57 MB each).</span>
+      </div>
+      <div id="mia-result" class="result" hidden></div>
+    </section>
+
+    <!-- 3. Story writing -->
+    <section class="panel" id="tab-story" role="tabpanel" aria-labelledby="t-story" hidden>
+      <p class="intro">The same models are ordinary language models: each was trained for one pass over TinyStories
+        (2 million short children's stories, 484M tokens) on a single desktop GPU.</p>
+      <div class="controls">
+        <div class="field">
+          <span class="label" id="story-model-label">Model</span>
+          <div class="seg" id="story-model-seg" role="radiogroup" aria-labelledby="story-model-label"></div>
+        </div>
+        <div class="field">
+          <label class="label" for="story-temp">Randomness <output id="story-temp-out">0.8</output></label>
+          <input type="range" id="story-temp" min="0" max="1.2" step="0.1" value="0.8">
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="story-prompt">Start of the story</label>
+        <input type="text" id="story-prompt" value="Once upon a time" maxlength="400">
+        <div class="chips" id="story-chips"></div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="story-go">Write</button>
+        <button id="story-stop" hidden>Stop</button>
+        <button id="story-saved">Show a saved story</button>
+        <span class="hint" id="story-hint"></span>
+      </div>
+      <p class="note" id="story-note" hidden></p>
+      <div class="story-out" id="story-out" aria-live="polite"></div>
+    </section>
+
+    <!-- 4. About -->
+    <section class="panel prose" id="tab-about" role="tabpanel" aria-labelledby="t-about" hidden>
+      <h2>What's going on</h2>
+      <p>Everything here was implemented from scratch for this project: the tokenizer, the 27.5M-parameter transformer,
+        the training loop, differentially private training (DP-SGD) and its privacy accounting, and the attacks.
+        PyTorch supplied tensors and gradients.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Model</th><th>Validation loss<br><span class="sub">lower is better</span></th>
+            <th>Secret in top 100 guesses<br><span class="sub">64 copies</span></th>
+            <th>Membership attack AUC<br><span class="sub">stories seen 3+ times</span></th></tr></thead>
+          <tbody id="about-table"></tbody>
+        </table>
+      </div>
+      <ul>
+        <li><strong>The undefended model memorizes repeated data.</strong> Secrets that appear 64 times are in the attacker's top 100 guesses 70% of the time.</li>
+        <li><strong>Deduplication is free and stops secret extraction</strong>, because the 64 copies collapse into one. It does not stop membership inference.</li>
+        <li><strong>DP-SGD stops both attacks</strong>, at a large cost in quality: try writing a story with it.</li>
+      </ul>
+      <h2>How this page works</h2>
+      <p>The models were exported to ONNX and run in your browser with ONNX Runtime Web (WebAssembly). Their weights are
+        stored at half precision to halve the download, and all arithmetic is full precision. The browser code is checked
+        against the PyTorch originals: identical tokens, identical greedy stories, story losses within 0.002, and the
+        same beam-search results. "Saved results" were computed with the same weights in PyTorch.</p>
+      <p>Data: <a href="https://huggingface.co/datasets/roneneldan/TinyStories">TinyStories</a> (Eldan &amp; Li, 2023).
+        Attacks follow Carlini et al. (2019, 2021) and Shokri et al. (2017); DP-SGD follows Abadi et al. (2016).
+        Built with Claude Code as a coding assistant; I directed the design and experiments and reviewed the code and results.</p>
+    </section>
+  </main>
+
+  <footer class="wrap site-foot">
+    <p>MIT licensed · <a href="https://github.com/samuelbingham07/sams-lm">github.com/samuelbingham07/sams-lm</a></p>
+  </footer>
+
+  <div class="tooltip" id="tooltip" role="status" hidden></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -43,3 +43,10 @@ runs/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Demo: exported models (hosted on Hugging Face), node packages, browser-test screenshots
+demo/hf_export/
+*.onnx
+demo/node_modules/
+demo/e2e_out/
+!demo/space/data/
